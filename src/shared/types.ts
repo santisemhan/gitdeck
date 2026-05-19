@@ -21,6 +21,8 @@ export interface GitFileChange {
   untracked: boolean;
   conflicted: boolean;
   kind: GitFileKind;
+  additions?: number;
+  deletions?: number;
 }
 
 export interface GitConflictState {
@@ -89,4 +91,23 @@ export interface CommitDetails {
   commit: GitCommit;
   files: GitFileChange[];
   patch: string;
+  parentHashes: string[];
+}
+
+export type FileStatus = GitFileKind;
+export type DiffMode = "split" | "inline";
+export type MainView = "graph" | "filePreview";
+export type RightPanelMode = "localChanges" | "commitDetails";
+export type SelectedFileSource = "commit" | "unstaged" | "staged";
+
+export interface DiffLine {
+  type: "header" | "hunk" | "add" | "del" | "context";
+  leftNumber: number | null;
+  rightNumber: number | null;
+  text: string;
+}
+
+export interface DiffHunk {
+  header: string;
+  lines: DiffLine[];
 }

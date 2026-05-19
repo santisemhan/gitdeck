@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { simpleGit } from "simple-git";
 import {
   CommitDetails,
   GitBranch,
@@ -10,12 +11,32 @@ import {
 } from "../../shared/types";
 import { parseHistory, historyFormat } from "../parsers/historyParser";
 import { parseStatusPorcelainV2 } from "../parsers/statusParser";
-import { runCommand } from "./commandRunner";
+type CommandResult = { code: number; stdout: string; stderr: string };
 
 const BIG_DIFF_LIMIT = 500_000;
 
 function fail(result: { code: number; stdout: string; stderr: string }, fallback: string): GitOperationResult {
   return { ok: false, code: result.code, stdout: result.stdout, stderr: result.stderr, message: result.stderr || fallback };
+}
+
+async function runGit(repoPath: string, args: string[]): Promise<CommandResult> {
+  try {
+    const stdout = await simpleGit({ baseDir: repoPath, binary: "git" }).raw(args);
+    return { code: 0, stdout: stdout.trimEnd(), stderr: "" };
+  } catch (error) {
+    const err = error as {
+      message?: string;
+      git?: { stdout?: string; stderr?: string; exitCode?: number };
+      stdout?: string;
+      stderr?: string;
+      exitCode?: number;
+    };
+    return {
+      code: err.git?.exitCode ?? err.exitCode ?? 1,
+      stdout: (err.git?.stdout ?? err.stdout ?? "").trimEnd(),
+      stderr: (err.git?.stderr ?? err.stderr ?? err.message ?? "").trimEnd()
+    };
+  }
 }
 
 export class GitService {
@@ -24,7 +45,7 @@ export class GitService {
     if (!stat || !stat.isDirectory()) {
       return { ok: false, code: 1, stdout: "", stderr: "", message: "Selected path is not a directory." };
     }
-    const result = await runCommand("git", ["rev-parse", "--is-inside-work-tree"], repoPath);
+    const result = await runGit(repoPath, ["rev-parse", "--is-inside-work-tree"]);
     if (result.code !== 0 || result.stdout.trim() !== "true") {
       return { ok: false, code: result.code, stdout: result.stdout, stderr: result.stderr, message: "Folder is not a Git repository." };
     }
@@ -37,7 +58,7 @@ export class GitService {
     const cherryPickInProgress = fs.existsSync(path.join(gitDir, "CHERRY_PICK_HEAD"));
     const rebaseInProgress = fs.existsSync(path.join(gitDir, "rebase-merge")) || fs.existsSync(path.join(gitDir, "rebase-apply"));
 
-    const head = await runCommand("git", ["symbolic-ref", "--quiet", "--short", "HEAD"], repoPath);
+    const head = await runGit(repoPath, ["symbolic-ref", "--quiet", "--short", "HEAD"]);
     const detachedHead = head.code !== 0;
 
     let operationState: GitStatus["state"]["operationState"] = "normal";
@@ -51,14 +72,14 @@ export class GitService {
 
   async getStatus(repoPath: string): Promise<GitStatus> {
     const state = await this.detectRepoState(repoPath);
-    const result = await runCommand("git", ["status", "--porcelain=v2", "--branch"], repoPath);
+    const result = await runGit(repoPath, ["status", "--porcelain=v2", "--branch"]);
     if (result.code !== 0) throw new Error(result.stderr || "Unable to get status");
     return parseStatusPorcelainV2(repoPath, result.stdout, state);
   }
 
   async getDiff(repoPath: string, filePath: string, staged: boolean): Promise<GitDiff> {
     const args = staged ? ["diff", "--cached", "--", filePath] : ["diff", "--", filePath];
-    const result = await runCommand("git", args, repoPath);
+    const result = await runGit(repoPath, args);
     if (result.code !== 0) throw new Error(result.stderr || "Unable to get diff");
     const text = result.stdout;
     const isBinary = /Binary files .* differ/.test(text);
@@ -73,25 +94,25 @@ export class GitService {
   }
 
   async stageFile(repoPath: string, filePath: string): Promise<GitOperationResult> {
-    const result = await runCommand("git", ["add", "--", filePath], repoPath);
+    const result = await runGit(repoPath, ["add", "--", filePath]);
     if (result.code !== 0) return fail(result, "Failed to stage file");
     return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
   }
 
   async unstageFile(repoPath: string, filePath: string): Promise<GitOperationResult> {
-    const result = await runCommand("git", ["restore", "--staged", "--", filePath], repoPath);
+    const result = await runGit(repoPath, ["restore", "--staged", "--", filePath]);
     if (result.code !== 0) return fail(result, "Failed to unstage file");
     return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
   }
 
   async stageAll(repoPath: string): Promise<GitOperationResult> {
-    const result = await runCommand("git", ["add", "--all"], repoPath);
+    const result = await runGit(repoPath, ["add", "--all"]);
     if (result.code !== 0) return fail(result, "Failed to stage all");
     return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
   }
 
   async unstageAll(repoPath: string): Promise<GitOperationResult> {
-    const result = await runCommand("git", ["restore", "--staged", "."], repoPath);
+    const result = await runGit(repoPath, ["restore", "--staged", "."]);
     if (result.code !== 0) return fail(result, "Failed to unstage all");
     return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
   }
@@ -100,23 +121,35 @@ export class GitService {
     if (!message.trim()) {
       return { ok: false, code: 1, stdout: "", stderr: "", message: "Commit message cannot be empty." };
     }
-    const result = await runCommand("git", ["commit", "-m", message], repoPath, 60000);
+    const result = await runGit(repoPath, ["commit", "-m", message]);
     if (result.code !== 0) return fail(result, "Commit failed");
     return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
   }
 
   async getHistory(repoPath: string): Promise<ReturnType<typeof parseHistory>> {
-    const result = await runCommand("git", ["log", "--date=iso-strict", "--decorate=short", `--format=${historyFormat}`, "-n", "200"], repoPath);
+    const result = await runGit(repoPath, ["log", "--date=iso-strict", "--decorate=short", `--format=${historyFormat}`, "-n", "200"]);
     if (result.code !== 0) throw new Error(result.stderr || "Unable to get history");
     return parseHistory(result.stdout);
   }
 
   async getCommitDetails(repoPath: string, commitHash: string): Promise<CommitDetails> {
-    const history = await runCommand("git", ["show", "--date=iso-strict", "--decorate=short", `--format=${historyFormat}`, "-s", commitHash], repoPath);
+    const history = await runGit(repoPath, ["show", "--date=iso-strict", "--decorate=short", `--format=${historyFormat}`, "-s", commitHash]);
     if (history.code !== 0) throw new Error(history.stderr || "Unable to read commit");
     const commit = parseHistory(history.stdout)[0];
-    const filesOutput = await runCommand("git", ["show", "--name-status", "--format=", commitHash], repoPath);
-    const patchOutput = await runCommand("git", ["show", "--format=", commitHash], repoPath);
+    const filesOutput = await runGit(repoPath, ["show", "--name-status", "--format=", commitHash]);
+    const numstatOutput = await runGit(repoPath, ["show", "--numstat", "--format=", commitHash]);
+    const parentsOutput = await runGit(repoPath, ["show", "--format=%P", "-s", commitHash]);
+    const patchOutput = await runGit(repoPath, ["show", "--format=", commitHash]);
+    const numstats = new Map<string, { additions: number; deletions: number }>();
+
+    for (const line of numstatOutput.stdout.split(/\r?\n/).filter(Boolean)) {
+      const [addRaw, delRaw, ...pathParts] = line.split(/\s+/);
+      const statPath = pathParts.join(" ");
+      const additions = addRaw === "-" ? 0 : Number(addRaw);
+      const deletions = delRaw === "-" ? 0 : Number(delRaw);
+      numstats.set(statPath, { additions, deletions });
+    }
+
     const files: GitFileChange[] = filesOutput.stdout
       .split(/\r?\n/)
       .filter(Boolean)
@@ -124,15 +157,21 @@ export class GitService {
         const [status, ...rest] = line.split(/\s+/);
         const p = rest.join(" ");
         const kind = status.startsWith("R") ? "renamed" : status.startsWith("A") ? "added" : status.startsWith("D") ? "deleted" : "modified";
-        return { path: p, staged: true, unstaged: false, untracked: false, conflicted: false, kind };
+        const counts = numstats.get(p);
+        return { path: p, staged: true, unstaged: false, untracked: false, conflicted: false, kind, additions: counts?.additions, deletions: counts?.deletions };
       });
 
-    return { commit, files, patch: patchOutput.stdout };
+    return {
+      commit,
+      files,
+      patch: patchOutput.stdout,
+      parentHashes: parentsOutput.stdout.trim().split(/\s+/).filter(Boolean)
+    };
   }
 
   async getBranches(repoPath: string): Promise<GitBranch[]> {
-    const local = await runCommand("git", ["branch", "--list"], repoPath);
-    const remote = await runCommand("git", ["branch", "-r"], repoPath);
+    const local = await runGit(repoPath, ["branch", "--list"]);
+    const remote = await runGit(repoPath, ["branch", "-r"]);
     if (local.code !== 0) throw new Error(local.stderr || "Unable to list branches");
 
     const localBranches = local.stdout
@@ -153,45 +192,64 @@ export class GitService {
   }
 
   async checkoutBranch(repoPath: string, branchName: string): Promise<GitOperationResult> {
-    const result = await runCommand("git", ["checkout", branchName], repoPath);
+    const result = await runGit(repoPath, ["checkout", branchName]);
     if (result.code !== 0) return fail(result, "Checkout failed");
     return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
+  }
+
+  async checkoutRemoteBranch(repoPath: string, remoteBranch: string): Promise<GitOperationResult> {
+    const trimmed = remoteBranch.trim();
+    if (!trimmed.includes("/")) {
+      return { ok: false, code: 1, stdout: "", stderr: "", message: "Invalid remote branch name" };
+    }
+
+    const slashIndex = trimmed.indexOf("/");
+    const localName = trimmed.slice(slashIndex + 1);
+
+    const hasLocal = await runGit(repoPath, ["show-ref", "--verify", "--quiet", `refs/heads/${localName}`]);
+    if (hasLocal.code === 0) {
+      return this.checkoutBranch(repoPath, localName);
+    }
+
+    const trackResult = await runGit(repoPath, ["checkout", "--track", "-b", localName, trimmed]);
+    if (trackResult.code !== 0) return fail(trackResult, "Checkout remote branch failed");
+    return { ok: true, code: 0, stdout: trackResult.stdout, stderr: trackResult.stderr };
   }
 
   async createBranch(repoPath: string, branchName: string, startPoint?: string): Promise<GitOperationResult> {
     const args = ["branch", branchName];
     if (startPoint) args.push(startPoint);
-    const result = await runCommand("git", args, repoPath);
+    const result = await runGit(repoPath, args);
     if (result.code !== 0) return fail(result, "Create branch failed");
     return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
   }
 
   async pull(repoPath: string): Promise<GitOperationResult> {
-    const result = await runCommand("git", ["pull"], repoPath, 120000);
+    const result = await runGit(repoPath, ["pull"]);
     if (result.code !== 0) return fail(result, this.mapNetworkError(result.stderr));
     return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
   }
 
   async push(repoPath: string): Promise<GitOperationResult> {
-    const result = await runCommand("git", ["push"], repoPath, 120000);
+    const result = await runGit(repoPath, ["push"]);
     if (result.code !== 0) return fail(result, this.mapNetworkError(result.stderr));
     return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
   }
 
   async cherryPick(repoPath: string, commitHash: string): Promise<GitOperationResult> {
-    const result = await runCommand("git", ["cherry-pick", commitHash], repoPath);
+    const result = await runGit(repoPath, ["cherry-pick", commitHash]);
     if (result.code !== 0) return fail(result, "Cherry-pick failed");
     return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
   }
 
   async continueCherryPick(repoPath: string): Promise<GitOperationResult> {
-    const result = await runCommand("git", ["cherry-pick", "--continue"], repoPath);
+    const result = await runGit(repoPath, ["cherry-pick", "--continue"]);
     if (result.code !== 0) return fail(result, "Cherry-pick continue failed");
     return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
   }
 
   async abortCherryPick(repoPath: string): Promise<GitOperationResult> {
-    const result = await runCommand("git", ["cherry-pick", "--abort"], repoPath);
+    const result = await runGit(repoPath, ["cherry-pick", "--abort"]);
     if (result.code !== 0) return fail(result, "Cherry-pick abort failed");
     return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
   }

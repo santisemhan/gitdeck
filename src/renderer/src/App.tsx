@@ -1,67 +1,58 @@
 import { useEffect, useMemo, useState } from "react";
-import { GitBranch, GitCommit, GitFileChange, GitStatus, Repository } from "../../shared/types";
+import { CommitDetails, GitBranch, GitCommit, GitFileChange, GitStatus, Repository } from "../../shared/types";
+import { DiffViewer } from "./components/DiffViewer";
+import { TopToolbar } from "./components/TopToolbar";
+import { countStaged, countUnstaged, fileKindClass, fileKindSymbol, shortPath } from "./utils/gitFormat";
 
-type Filter = "all" | "staged" | "unstaged" | "untracked" | "conflicted";
-type NoticeKind = "info" | "success" | "warning" | "error";
+type DiffMode = "split" | "inline";
+type MainView = "graph" | "filePreview";
+type RightPanelMode = "localChanges" | "commitDetails";
+type SelectedFileSource = "commit" | "unstaged" | "staged";
+
+function FileStatusIcon({ file }: { file: GitFileChange }) {
+  return <span className={`status-mark ${fileKindClass(file.kind)}`}>{fileKindSymbol(file.kind)}</span>;
+}
 
 export function App() {
-  if (!window.gitdeck) {
-    return (
-      <div style={{ padding: 20, color: "#fecaca", fontFamily: "Segoe UI, sans-serif" }}>
-        GitDeck preload bridge is unavailable. Restart the app. If this persists, run a fresh build.
-      </div>
-    );
-  }
-
   const [recentRepos, setRecentRepos] = useState<Repository[]>([]);
   const [repoPath, setRepoPath] = useState("");
   const [status, setStatus] = useState<GitStatus | null>(null);
   const [history, setHistory] = useState<GitCommit[]>([]);
   const [branches, setBranches] = useState<GitBranch[]>([]);
-  const [selectedFile, setSelectedFile] = useState<GitFileChange | null>(null);
   const [selectedCommit, setSelectedCommit] = useState<GitCommit | null>(null);
+  const [commitDetails, setCommitDetails] = useState<CommitDetails | null>(null);
+  const [selectedFile, setSelectedFile] = useState<GitFileChange | null>(null);
+  const [selectedFileSource, setSelectedFileSource] = useState<SelectedFileSource | null>(null);
+  const [mainView, setMainView] = useState<MainView>("graph");
+  const [rightPanelMode, setRightPanelMode] = useState<RightPanelMode>("localChanges");
   const [diffText, setDiffText] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
+  const [diffMode, setDiffMode] = useState<DiffMode>("split");
   const [commitMessage, setCommitMessage] = useState("");
-  const [manualCherryPick, setManualCherryPick] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
-  const [noticeKind, setNoticeKind] = useState<NoticeKind>("info");
-  const [selectedDiffStaged, setSelectedDiffStaged] = useState(false);
-  const [showBranchModal, setShowBranchModal] = useState(false);
-  const [newBranchName, setNewBranchName] = useState("");
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [confirmTitle, setConfirmTitle] = useState("");
-  const [confirmMessage, setConfirmMessage] = useState("");
-  const [confirmAction, setConfirmAction] = useState<null | (() => Promise<void>)>(null);
+  const [toast, setToast] = useState("");
+  const [branchSelection, setBranchSelection] = useState<string>("");
 
-  const setNoticeWithKind = (message: string, kind: NoticeKind) => {
-    setNotice(message);
-    setNoticeKind(kind);
-  };
+  const localBranches = useMemo(() => branches.filter((b) => !b.remote), [branches]);
+  const remoteBranches = useMemo(() => branches.filter((b) => b.remote), [branches]);
+  const unstagedFiles = useMemo(() => (status?.changes ?? []).filter((f) => f.unstaged || f.untracked), [status]);
+  const stagedFiles = useMemo(() => (status?.changes ?? []).filter((f) => f.staged), [status]);
+  const stagedCount = useMemo(() => countStaged(status?.changes ?? []), [status]);
+  const unstagedCount = useMemo(() => countUnstaged(status?.changes ?? []), [status]);
 
-  const closeConfirm = () => {
-    setShowConfirm(false);
-    setConfirmTitle("");
-    setConfirmMessage("");
-    setConfirmAction(null);
-  };
-
-  const askConfirm = (title: string, message: string, action: () => Promise<void>) => {
-    setConfirmTitle(title);
-    setConfirmMessage(message);
-    setConfirmAction(() => action);
-    setShowConfirm(true);
-  };
-
-  const classifyError = (message: string): { kind: NoticeKind; text: string } => {
-    const m = message.toLowerCase();
-    if (m.includes("no upstream")) return { kind: "warning", text: "No upstream configured for this branch." };
-    if (m.includes("authentication") || m.includes("permission denied")) return { kind: "error", text: "Authentication failed. Check your Git credentials." };
-    if (m.includes("rejected")) return { kind: "warning", text: "Push rejected. Pull/rebase and try again." };
-    if (m.includes("network") || m.includes("resolve host") || m.includes("unable to access")) return { kind: "error", text: "Network error while contacting remote." };
-    if (m.includes("conflict")) return { kind: "warning", text: "Git reported conflicts. Resolve them and continue." };
-    return { kind: "error", text: message || "Operation failed" };
+  const runAndRefresh = async (
+    fn: () => Promise<{ ok: boolean; message?: string; stderr: string }>,
+    successToast?: string
+  ) => {
+    setBusy(true);
+    const res = await fn();
+    setNotice(res.ok ? "Done" : res.message || res.stderr || "Operation failed");
+    if (res.ok && successToast) {
+      setToast(successToast);
+      window.setTimeout(() => setToast(""), 2600);
+    }
+    await refresh();
+    setBusy(false);
   };
 
   const refresh = async (pathArg = repoPath) => {
@@ -79,7 +70,7 @@ export function App() {
       setBranches(b);
       setRecentRepos(repos);
     } catch (error) {
-      setNoticeWithKind((error as Error).message, "error");
+      setNotice((error as Error).message);
     } finally {
       setBusy(false);
     }
@@ -89,238 +80,299 @@ export function App() {
     window.gitdeck.getRecentRepositories().then(setRecentRepos).catch(() => undefined);
   }, []);
 
+  const resetToLocalChanges = () => {
+    setSelectedCommit(null);
+    setCommitDetails(null);
+    setSelectedFile(null);
+    setSelectedFileSource(null);
+    setDiffText("");
+    setMainView("graph");
+    setRightPanelMode("localChanges");
+  };
+
   const openRepo = async () => {
     const res = await window.gitdeck.selectRepository();
     if (!res?.ok) {
-      setNoticeWithKind(res?.message || "Unable to open repository", "error");
+      setNotice(res?.message || "Unable to open repository");
       return;
     }
     setRepoPath(res.path);
+    resetToLocalChanges();
     await refresh(res.path);
   };
 
-  const runAndRefresh = async (fn: () => Promise<{ ok: boolean; message?: string; stderr: string }>) => {
+  const openRecentRepo = async (path: string) => {
+    setRepoPath(path);
+    resetToLocalChanges();
+    await refresh(path);
+  };
+
+  const selectCommit = async (commit: GitCommit) => {
+    setSelectedCommit(commit);
+    setRightPanelMode("commitDetails");
+    setMainView("graph");
+    setSelectedFile(null);
+    setSelectedFileSource(null);
+    setDiffText("");
+    const details = await window.gitdeck.getCommitDetails(repoPath, commit.hash);
+    setCommitDetails(details);
+  };
+
+  const selectCommitFile = (file: GitFileChange) => {
+    if (!commitDetails) return;
+    setSelectedFile(file);
+    setSelectedFileSource("commit");
+    setDiffText(commitDetails.patch || "No textual diff available");
+    setMainView("filePreview");
+    setRightPanelMode("commitDetails");
+  };
+
+  const selectLocalFile = async (file: GitFileChange, source: "unstaged" | "staged") => {
+    setSelectedFile(file);
+    setSelectedFileSource(source);
+    setRightPanelMode("localChanges");
+    const diff = await window.gitdeck.getDiff(repoPath, file.path, source === "staged");
+    setDiffText(diff.text || "No textual diff available");
+    setMainView("filePreview");
+  };
+
+  const closePreview = () => {
+    setSelectedFile(null);
+    setSelectedFileSource(null);
+    setMainView("graph");
+  };
+
+  const goToWorkingDirectory = () => {
+    setRightPanelMode("localChanges");
+    setSelectedFile(null);
+    setSelectedFileSource(null);
+    setDiffText("");
+    setMainView("graph");
+  };
+
+  const onRemoteBranchDoubleClick = async (remoteName: string) => {
     setBusy(true);
-    const result = await fn();
-    if (result.ok) setNoticeWithKind("Done", "success");
-    else {
-      const classified = classifyError(result.message || result.stderr || "Operation failed");
-      setNoticeWithKind(classified.text, classified.kind);
-    }
+    const res = await window.gitdeck.checkoutRemoteBranch(repoPath, remoteName);
+    setNotice(res.ok ? `Checked out ${remoteName}` : res.message || res.stderr || "Checkout failed");
     await refresh();
     setBusy(false);
   };
 
-  const handleCheckoutBranch = async (branchName: string) => {
-    if (!repoPath || !branchName) return;
-    const dirty = !!status && !status.clean;
-    if (!dirty) {
-      await runAndRefresh(() => window.gitdeck.checkoutBranch(repoPath, branchName));
+  const onCommit = async () => {
+    const message = commitMessage.trim();
+    if (!message) {
+      setNotice("Commit message is required");
       return;
     }
-    askConfirm(
-      "Checkout with dirty tree",
-      `Your working tree has uncommitted changes. Checkout to '${branchName}' may fail or cause conflicts. Continue anyway?`,
-      async () => {
-        closeConfirm();
-        await runAndRefresh(() => window.gitdeck.checkoutBranch(repoPath, branchName));
-      }
+    await runAndRefresh(() => window.gitdeck.commit(repoPath, message));
+    setCommitMessage("");
+  };
+
+  const onOpenInEditor = async () => {
+    if (!selectedFile) return;
+    const filePath = `${repoPath}/${selectedFile.path}`;
+    const res = await window.gitdeck.openFileInVSCode(filePath);
+    setNotice(res.ok ? "Opened file in VS Code" : res.message);
+  };
+
+  if (!repoPath) {
+    return (
+      <div className="launcher-screen">
+        <div className="launcher-card">
+          <h1>GitDeck</h1>
+          <p>Repository Launcher</p>
+          <div className="launcher-actions">
+            <button onClick={openRepo}>Open Repository</button>
+            <button onClick={() => window.gitdeck.getRecentRepositories().then(setRecentRepos)}>Refresh Recent</button>
+          </div>
+          <div className="launcher-list">
+            {recentRepos.map((repo) => (
+              <button key={repo.path} className="launcher-item" onClick={() => openRecentRepo(repo.path)}>
+                <strong>{repo.name}</strong>
+                <span>{repo.path}</span>
+              </button>
+            ))}
+            {recentRepos.length === 0 && <div className="empty">No recent repositories</div>}
+          </div>
+        </div>
+      </div>
     );
-  };
-
-  const handleAbortCherryPick = async () => {
-    askConfirm(
-      "Abort cherry-pick",
-      "This will stop the current cherry-pick sequence and discard its in-progress state. Continue?",
-      async () => {
-        closeConfirm();
-        await runAndRefresh(() => window.gitdeck.abortCherryPick(repoPath));
-      }
-    );
-  };
-
-  const createBranchFromModal = async () => {
-    const name = newBranchName.trim();
-    if (!name) {
-      setNoticeWithKind("Branch name cannot be empty.", "warning");
-      return;
-    }
-    await runAndRefresh(() => window.gitdeck.createBranch(repoPath, name));
-    setNewBranchName("");
-    setShowBranchModal(false);
-  };
-
-  const filteredChanges = useMemo(() => {
-    const list = status?.changes ?? [];
-    if (filter === "all") return list;
-    if (filter === "staged") return list.filter((c) => c.staged);
-    if (filter === "unstaged") return list.filter((c) => c.unstaged && !c.untracked);
-    if (filter === "untracked") return list.filter((c) => c.untracked);
-    return list.filter((c) => c.conflicted);
-  }, [status, filter]);
-
-  const selectFile = async (file: GitFileChange, staged: boolean) => {
-    setSelectedCommit(null);
-    setSelectedFile(file);
-    setSelectedDiffStaged(staged);
-    const diff = await window.gitdeck.getDiff(repoPath, file.path, staged);
-    if (diff.isBinary) setDiffText("Binary file. Diff is not displayed.");
-    else if (diff.tooLarge) setDiffText("Large diff truncated. Open in VS Code for full view.\n\n" + (diff.text || ""));
-    else setDiffText(diff.text || "No textual diff available.");
-  };
-
-  const selectCommit = async (commit: GitCommit) => {
-    setSelectedFile(null);
-    setSelectedCommit(commit);
-    const details = await window.gitdeck.getCommitDetails(repoPath, commit.hash);
-    setDiffText(details.patch || "No diff");
-  };
+  }
 
   return (
-    <div className="layout">
-      <aside className="sidebar">
-        <h2>GitDeck</h2>
-        <button onClick={openRepo}>Open Repository</button>
-        <div className="block">
-          <h3>Recent</h3>
-          {recentRepos.map((r) => (
-            <button key={r.path} className="repo-btn" onClick={() => { setRepoPath(r.path); refresh(r.path); }}>
-              {r.name}
-            </button>
-          ))}
-        </div>
-        <div className="block">
-          <h3>Branches</h3>
-          {branches.map((b) => (
-            <button key={`${b.remote}:${b.name}`} className={b.current ? "current" : "repo-btn"} onClick={() => !b.remote && handleCheckoutBranch(b.name)}>
-              {b.remote ? `remote/${b.name}` : b.name}
-            </button>
-          ))}
-        </div>
-      </aside>
+    <div className="app-shell">
+      <TopToolbar
+        repoPath={repoPath}
+        busy={busy}
+        onOpenRepo={() => setRepoPath("")}
+        onRefresh={() => refresh()}
+        onPull={() => runAndRefresh(() => window.gitdeck.pull(repoPath), "Pull completed successfully")}
+        onPush={() => runAndRefresh(() => window.gitdeck.push(repoPath), "Push completed successfully")}
+        onBranch={() => undefined}
+      />
 
-      <main className="main">
-        <header className="toolbar">
-          <span>{repoPath || "No repository opened"}</span>
-          <div className="toolbar-actions">
-            <button disabled={!repoPath || busy} onClick={() => refresh()}>Refresh</button>
-            <button disabled={!repoPath || busy} onClick={() => runAndRefresh(() => window.gitdeck.pull(repoPath))}>Pull</button>
-            <button disabled={!repoPath || busy} onClick={() => runAndRefresh(() => window.gitdeck.push(repoPath))}>Push</button>
-            <button disabled={!repoPath || busy} onClick={() => setShowBranchModal(true)}>New Branch</button>
-          </div>
-        </header>
+      <section className={`main-layout ${mainView === "filePreview" ? "file-preview-layout" : ""}`}>
+        {mainView === "graph" && (
+          <aside className="branch-sidebar">
+            <div className="section-header">Local Branches</div>
+            {localBranches.map((b) => (
+              <button
+                key={`local:${b.name}`}
+                className={`branch-item ${b.current ? "current" : ""} ${branchSelection === b.name ? "selected" : ""}`}
+                onClick={() => setBranchSelection(b.name)}
+                onDoubleClick={() => runAndRefresh(() => window.gitdeck.checkoutBranch(repoPath, b.name))}
+              >
+                <span>{b.name}</span>
+              </button>
+            ))}
+            <div className="section-header">Remote Branches</div>
+            {remoteBranches.map((b) => (
+              <button
+                key={`remote:${b.name}`}
+                className={`branch-item muted-item ${branchSelection === b.name ? "selected" : ""}`}
+                onClick={() => setBranchSelection(b.name)}
+                onDoubleClick={() => onRemoteBranchDoubleClick(b.name)}
+                title="Double click to checkout tracking branch"
+              >
+                <span>{b.name}</span>
+              </button>
+            ))}
+          </aside>
+        )}
 
-        <section className="overview">
-          <div><span className="badge">Branch</span> {status?.branch ?? "-"}</div>
-          <div><span className="badge">Upstream</span> {status?.upstream ?? "none"}</div>
-          <div><span className="badge">Ahead/Behind</span> {status ? `${status.ahead}/${status.behind}` : "-"}</div>
-          <div><span className="badge">State</span> {status?.state.operationState ?? "-"}</div>
-          <div><span className={`badge ${status?.clean ? "good" : "warn"}`}>Tree</span> {status?.clean ? "clean" : "dirty"}</div>
-          {!!status?.conflicts.hasConflicts && <div><span className="badge warn">Conflicts</span> {status.conflicts.files.length}</div>}
+        <section className="center-pane">
+          {mainView === "graph" && (
+            <>
+              <div className="section-header">Commit Graph</div>
+              <ul className="commit-list">
+                {history.map((c) => (
+                  <li key={c.hash} className={selectedCommit?.hash === c.hash ? "commit-row selected" : "commit-row"}>
+                    <div className="graph-col"><span className="commit-node" /></div>
+                    <button className="commit-content" onClick={() => selectCommit(c)}>
+                      <span className="subject">{c.subject}</span>
+                      <span className="meta">{c.shortHash} {c.authorName} {new Date(c.date).toLocaleString()}</span>
+                      {!!c.refs && <span className="refs">{c.refs}</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {mainView === "filePreview" && selectedFile && (
+            <>
+              <div className="diff-preview-header">
+                <div className="diff-preview-title">
+                  <FileStatusIcon file={selectedFile} />
+                  <span>{selectedFile.path}</span>
+                  <span className="encoding-pill">UTF-8</span>
+                </div>
+                <div className="diff-actions">
+                  <button className={diffMode === "split" ? "active" : ""} onClick={() => setDiffMode("split")}>Split View</button>
+                  <button className={diffMode === "inline" ? "active" : ""} onClick={() => setDiffMode("inline")}>Inline View</button>
+                  {selectedFileSource === "unstaged" && <button onClick={() => runAndRefresh(() => window.gitdeck.stageFile(repoPath, selectedFile.path))}>Stage File</button>}
+                  {selectedFileSource === "staged" && <button onClick={() => runAndRefresh(() => window.gitdeck.unstageFile(repoPath, selectedFile.path))}>Unstage File</button>}
+                  {(selectedFileSource === "unstaged" || selectedFileSource === "staged") && <button onClick={onOpenInEditor}>Edit This File</button>}
+                  <button onClick={closePreview}>X</button>
+                </div>
+              </div>
+              <DiffViewer
+                text={diffText}
+                mode={diffMode}
+                selectedPath={selectedFileSource === "commit" ? selectedFile.path : undefined}
+                emptyText="Select a file to preview its diff"
+              />
+            </>
+          )}
         </section>
 
-        <section className="content-grid">
-          <div className="panel">
-            <h3>Changed Files</h3>
-            <div className="row">
-              <select value={filter} onChange={(e) => setFilter(e.target.value as Filter)}>
-                <option value="all">all</option><option value="staged">staged</option><option value="unstaged">unstaged</option><option value="untracked">untracked</option><option value="conflicted">conflicted</option>
-              </select>
-              <button onClick={() => runAndRefresh(() => window.gitdeck.stageAll(repoPath))}>Stage All</button>
-              <button onClick={() => runAndRefresh(() => window.gitdeck.unstageAll(repoPath))}>Unstage All</button>
-            </div>
-            <ul>
-              {filteredChanges.map((f) => (
-                <li key={`${f.path}:${f.kind}`}>
-                  <button onClick={() => selectFile(f, f.staged && !f.unstaged)}>{f.kind} {f.path}</button>
-                  {f.staged && f.unstaged && (
-                    <>
-                      <button onClick={() => selectFile(f, false)}>Diff unstaged</button>
-                      <button onClick={() => selectFile(f, true)}>Diff staged</button>
-                    </>
-                  )}
-                  <button onClick={() => runAndRefresh(() => f.staged ? window.gitdeck.unstageFile(repoPath, f.path) : window.gitdeck.stageFile(repoPath, f.path))}>{f.staged ? "Unstage" : "Stage"}</button>
-                  {f.conflicted && <button onClick={() => window.gitdeck.openFileInVSCode(`${repoPath}/${f.path}`)}>Open in VS Code</button>}
-                </li>
-              ))}
-            </ul>
-          </div>
+        <section className="right-panel">
+          {rightPanelMode === "localChanges" && (
+            <>
+              <div className="detail-header">
+                <h2>{status?.changes.length ?? 0} file changes in working directory</h2>
+                <div className="meta-row"><span className="branch-pill">{status?.branch ?? "-"}</span></div>
+                <div className="meta-row">Unstaged {unstagedCount} • Staged {stagedCount}</div>
+                <div className="panel-actions">
+                  <button
+                    onClick={() => {
+                      const first = unstagedFiles[0] ?? stagedFiles[0];
+                      if (!first) return;
+                      void selectLocalFile(first, first.staged ? "staged" : "unstaged");
+                    }}
+                  >
+                    View Changes
+                  </button>
+                  <button onClick={() => runAndRefresh(() => window.gitdeck.stageAll(repoPath))}>Stage All Changes</button>
+                </div>
+              </div>
+              <div className="changes-panel">
+                <h4>Unstaged Files</h4>
+                {unstagedFiles.map((f) => (
+                  <div key={`u:${f.path}`} className="file-row">
+                    <button className={`file-main ${selectedFile?.path === f.path && selectedFileSource === "unstaged" ? "selected" : ""}`} onClick={() => selectLocalFile(f, "unstaged")}>
+                      <FileStatusIcon file={f} />
+                      <span>{shortPath(f.path)}</span>
+                    </button>
+                    <button onClick={() => runAndRefresh(() => window.gitdeck.stageFile(repoPath, f.path))}>Stage</button>
+                  </div>
+                ))}
+                <h4>Staged Files</h4>
+                {stagedFiles.map((f) => (
+                  <div key={`s:${f.path}`} className="file-row">
+                    <button className={`file-main ${selectedFile?.path === f.path && selectedFileSource === "staged" ? "selected" : ""}`} onClick={() => selectLocalFile(f, "staged")}>
+                      <FileStatusIcon file={f} />
+                      <span>{shortPath(f.path)}</span>
+                    </button>
+                    <button onClick={() => runAndRefresh(() => window.gitdeck.unstageFile(repoPath, f.path))}>Unstage</button>
+                  </div>
+                ))}
+              </div>
+              <div className="commit-form">
+                <h4>Commit</h4>
+                <textarea
+                  value={commitMessage}
+                  onChange={(event) => setCommitMessage(event.target.value)}
+                  placeholder="Commit message"
+                  rows={3}
+                />
+                <div className="panel-actions">
+                  <button onClick={onCommit}>Commit Staged Changes</button>
+                </div>
+              </div>
+            </>
+          )}
 
-          <div className="panel">
-            <h3>History</h3>
-            <ul>
-              {history.map((c) => (
-                <li key={c.hash}>
-                  <button onClick={() => selectCommit(c)}>{c.shortHash} {c.subject}</button>
-                  <button onClick={() => runAndRefresh(() => window.gitdeck.cherryPick(repoPath, c.hash))}>Cherry-pick</button>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="panel diff">
-            <h3>Diff</h3>
-            {selectedFile && <div className="muted">File: {selectedFile.path} ({selectedDiffStaged ? "staged" : "unstaged"})</div>}
-            {selectedCommit && <div className="muted">Commit: {selectedCommit.shortHash}</div>}
-            <pre>{diffText || "Select file or commit"}</pre>
-          </div>
+          {rightPanelMode === "commitDetails" && selectedCommit && commitDetails && (
+            <>
+              <div className="working-directory-jump">
+                <div>{status?.changes.length ?? 0} file changes in working directory</div>
+                <button onClick={goToWorkingDirectory}>View Changes</button>
+              </div>
+              <div className="detail-header">
+                <h2>{selectedCommit.subject}</h2>
+                <div className="meta-row">{selectedCommit.shortHash} • {selectedCommit.authorName}</div>
+                <div className="meta-row">{new Date(selectedCommit.date).toLocaleString()}</div>
+                <div className="meta-row">Parent: {commitDetails.parentHashes.join(", ") || "none"}</div>
+                {!!selectedCommit.refs && <div className="meta-row">{selectedCommit.refs}</div>}
+                <div className="meta-row">{commitDetails.files.length} files changed in this commit</div>
+              </div>
+              <div className="changes-panel">
+                {commitDetails.files.map((f) => (
+                  <button key={f.path} className={`file-main ${selectedFile?.path === f.path && selectedFileSource === "commit" ? "selected" : ""}`} onClick={() => selectCommitFile(f)}>
+                    <FileStatusIcon file={f} />
+                    <span>{shortPath(f.path)}</span>
+                    <span className="line-stat">+{f.additions ?? 0} -{f.deletions ?? 0}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </section>
+      </section>
 
-        <section className="bottom-row">
-          <div className="panel">
-            <h3>Commit</h3>
-            <textarea value={commitMessage} onChange={(e) => setCommitMessage(e.target.value)} placeholder="Commit message" />
-            <button disabled={!repoPath || busy} onClick={async () => {
-              await runAndRefresh(() => window.gitdeck.commit(repoPath, commitMessage));
-              setCommitMessage("");
-            }}>Commit Staged</button>
-          </div>
-
-          <div className="panel">
-            <h3>Cherry-pick Workflow</h3>
-            <input value={manualCherryPick} onChange={(e) => setManualCherryPick(e.target.value)} placeholder="Commit hash" />
-            <div className="row">
-              <button onClick={() => runAndRefresh(() => window.gitdeck.cherryPick(repoPath, manualCherryPick))}>Cherry-pick Hash</button>
-              <button onClick={() => runAndRefresh(() => window.gitdeck.continueCherryPick(repoPath))}>Continue</button>
-              <button className="danger" onClick={handleAbortCherryPick}>Abort</button>
-              <button onClick={() => window.gitdeck.openRepositoryInVSCode(repoPath)}>Open Repo in VS Code</button>
-            </div>
-          </div>
-        </section>
-
-        <footer className={`status ${noticeKind}`}>{busy ? "Working..." : notice}</footer>
-      </main>
-
-      {showBranchModal && (
-        <div className="modal-backdrop" onClick={() => setShowBranchModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Create branch</h3>
-            <input
-              autoFocus
-              value={newBranchName}
-              onChange={(e) => setNewBranchName(e.target.value)}
-              placeholder="feature/my-branch"
-            />
-            <div className="row">
-              <button onClick={createBranchFromModal}>Create</button>
-              <button onClick={() => { setShowBranchModal(false); setNewBranchName(""); }}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showConfirm && (
-        <div className="modal-backdrop" onClick={closeConfirm}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{confirmTitle}</h3>
-            <p className="muted">{confirmMessage}</p>
-            <div className="row">
-              <button className="danger" onClick={() => confirmAction?.()}>Confirm</button>
-              <button onClick={closeConfirm}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <footer className="status">{busy ? "Working..." : notice}</footer>
+      {toast && <div className="success-toast">{toast}</div>}
     </div>
   );
 }

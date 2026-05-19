@@ -24,6 +24,7 @@ declare global {
       getCommitDetails(repoPath: string, commitHash: string): Promise<CommitDetails>;
       getBranches(repoPath: string): Promise<GitBranch[]>;
       checkoutBranch(repoPath: string, branch: string): Promise<GitOperationResult>;
+      checkoutRemoteBranch(repoPath: string, remoteBranch: string): Promise<GitOperationResult>;
       createBranch(repoPath: string, branch: string, startPoint?: string): Promise<GitOperationResult>;
       pull(repoPath: string): Promise<GitOperationResult>;
       push(repoPath: string): Promise<GitOperationResult>;
