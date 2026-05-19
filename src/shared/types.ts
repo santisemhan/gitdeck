@@ -72,6 +72,8 @@ export interface GitCommit {
   date: string;
   subject: string;
   refs: string;
+  parents: string[];
+  body: string;
 }
 
 export interface GitOperationResult {

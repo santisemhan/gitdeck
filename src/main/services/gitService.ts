@@ -127,9 +127,48 @@ export class GitService {
   }
 
   async getHistory(repoPath: string): Promise<ReturnType<typeof parseHistory>> {
-    const result = await runGit(repoPath, ["log", "--date=iso-strict", "--decorate=short", `--format=${historyFormat}`, "-n", "200"]);
+    const result = await runGit(repoPath, ["log", "--date=iso-strict", "--decorate=short", `--format=${historyFormat}`, "-n", "200", "--branches", "--remotes", "--tags", "HEAD"]);
     if (result.code !== 0) throw new Error(result.stderr || "Unable to get history");
     return parseHistory(result.stdout);
+  }
+
+  async getCommitFileDiff(repoPath: string, commitHash: string, filePath: string): Promise<GitDiff> {
+    const result = await runGit(repoPath, ["show", commitHash, "--format=", "--", filePath]);
+    if (result.code !== 0) throw new Error(result.stderr || "Unable to get commit diff");
+    const text = result.stdout;
+    const isBinary = /Binary files .* differ/.test(text);
+    const tooLarge = text.length > BIG_DIFF_LIMIT;
+    return {
+      path: filePath,
+      staged: false,
+      isBinary,
+      tooLarge,
+      text: tooLarge ? text.slice(0, BIG_DIFF_LIMIT) + "\n\n[Diff truncated due to size]" : text
+    };
+  }
+
+  async getFileContent(repoPath: string, filePath: string, source: "unstaged" | "staged" | "commit", commitHash?: string): Promise<{ text: string; isBinary: boolean }> {
+    const BIG_FILE_LIMIT = 500_000;
+    let text: string;
+    if (source === "unstaged") {
+      const fullPath = path.join(repoPath, filePath);
+      const buf = fs.readFileSync(fullPath);
+      const isBinary = buf.slice(0, 8000).includes(0);
+      if (isBinary) return { text: "", isBinary: true };
+      text = buf.toString("utf-8");
+    } else if (source === "staged") {
+      const result = await runGit(repoPath, ["show", `:${filePath}`]);
+      if (result.code !== 0) throw new Error(result.stderr || "Unable to read staged file");
+      text = result.stdout;
+    } else {
+      if (!commitHash) throw new Error("commitHash required for commit source");
+      const result = await runGit(repoPath, ["show", `${commitHash}:${filePath}`]);
+      if (result.code !== 0) throw new Error(result.stderr || "Unable to read file from commit");
+      text = result.stdout;
+    }
+    const isBinary = false;
+    if (text.length > BIG_FILE_LIMIT) text = text.slice(0, BIG_FILE_LIMIT) + "\n\n[File truncated due to size]";
+    return { text, isBinary };
   }
 
   async getCommitDetails(repoPath: string, commitHash: string): Promise<CommitDetails> {

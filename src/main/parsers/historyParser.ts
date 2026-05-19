@@ -1,15 +1,27 @@
 import { GitCommit } from "../../shared/types";
 
-const SEP = "\u001f";
+const SEP = "";
+const REC = "";
 
-export const historyFormat = ["%H", "%h", "%an", "%ae", "%aI", "%s", "%D"].join(SEP);
+export const historyFormat = ["%H", "%h", "%an", "%ae", "%aI", "%s", "%D", "%P", "%b"].join(SEP) + REC;
 
 export function parseHistory(input: string): GitCommit[] {
   return input
-    .split(/\r?\n/)
+    .split(REC)
+    .map((entry) => entry.replace(/^\r?\n/, ""))
     .filter(Boolean)
-    .map((line) => {
-      const [hash, shortHash, authorName, authorEmail, date, subject, refs] = line.split(SEP);
-      return { hash, shortHash, authorName, authorEmail, date, subject, refs: refs ?? "" };
+    .map((entry) => {
+      const [hash, shortHash, authorName, authorEmail, date, subject, refs, parents, body] = entry.split(SEP);
+      return {
+        hash,
+        shortHash,
+        authorName,
+        authorEmail,
+        date,
+        subject,
+        refs: refs ?? "",
+        parents: (parents ?? "").trim().split(/\s+/).filter(Boolean),
+        body: (body ?? "").replace(/\r?\n$/, "")
+      };
     });
 }

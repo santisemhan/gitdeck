@@ -11,6 +11,8 @@ export const Channels = {
   commit: "git:commit",
   getHistory: "git:history",
   getCommitDetails: "git:commitDetails",
+  getCommitFileDiff: "git:commitFileDiff",
+  getFileContent: "git:fileContent",
   getBranches: "git:branches",
   checkoutBranch: "git:checkoutBranch",
   checkoutRemoteBranch: "git:checkoutRemoteBranch",

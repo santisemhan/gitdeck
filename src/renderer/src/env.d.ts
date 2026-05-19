@@ -22,6 +22,8 @@ declare global {
       commit(repoPath: string, message: string): Promise<GitOperationResult>;
       getHistory(repoPath: string): Promise<any[]>;
       getCommitDetails(repoPath: string, commitHash: string): Promise<CommitDetails>;
+      getCommitFileDiff(repoPath: string, commitHash: string, filePath: string): Promise<GitDiff>;
+      getFileContent(repoPath: string, filePath: string, source: string, commitHash?: string): Promise<{ text: string; isBinary: boolean }>;
       getBranches(repoPath: string): Promise<GitBranch[]>;
       checkoutBranch(repoPath: string, branch: string): Promise<GitOperationResult>;
       checkoutRemoteBranch(repoPath: string, remoteBranch: string): Promise<GitOperationResult>;
