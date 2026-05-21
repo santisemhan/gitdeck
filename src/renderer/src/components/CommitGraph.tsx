@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Commit, CommitRef } from "../data/types";
 import {
   IconCaretDown,
@@ -21,12 +21,19 @@ const ROW_H = 30;
 const NODE_R = 7;
 const LANE_X = (lane: number) => 14 + lane * 18;
 
+type BranchCtxMenu =
+  | { phase: "menu"; x: number; y: number; refName: string; isCurrent: boolean }
+  | { phase: "rename"; x: number; y: number; refName: string; value: string };
+
 interface CommitGraphProps {
   commits: Commit[];
   selectedCommitId?: string;
   onSelectCommit: (commit: Commit) => void;
   onSelectWip: () => void;
   onCheckoutRef?: (refName: string) => void;
+  onCreateBranchFrom?: (refName: string) => void;
+  onDeleteBranch?: (refName: string) => void;
+  onRenameBranch?: (oldName: string, newName: string) => void;
 }
 
 export function CommitGraph({
@@ -35,6 +42,9 @@ export function CommitGraph({
   onSelectCommit,
   onSelectWip,
   onCheckoutRef,
+  onCreateBranchFrom,
+  onDeleteBranch,
+  onRenameBranch,
 }: CommitGraphProps) {
   const byId = useMemo(() => {
     const m: Record<string, Commit & { rowIdx: number }> = {};
@@ -70,6 +80,36 @@ export function CommitGraph({
     return result;
   }, [commits, byId]);
 
+  const [branchCtxMenu, setBranchCtxMenu] = useState<BranchCtxMenu | null>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!branchCtxMenu) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      setBranchCtxMenu(null);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [branchCtxMenu]);
+
+  useEffect(() => {
+    if (branchCtxMenu?.phase === "rename") {
+      renameInputRef.current?.select();
+    }
+  }, [branchCtxMenu?.phase]);
+
+  const handleRefContextMenu = useCallback(
+    (refName: string, isCurrent: boolean, x: number, y: number) => {
+      setBranchCtxMenu({ phase: "menu", x, y, refName, isCurrent });
+    },
+    []
+  );
+
   const totalH = commits.length * ROW_H;
   const svgW = 60;
 
@@ -104,6 +144,7 @@ export function CommitGraph({
               const toX = LANE_X(e.toLane);
               const fromY = e.fromRow * ROW_H + ROW_H / 2;
               const toY = e.toRow * ROW_H + ROW_H / 2;
+              const dy = toY - fromY;
 
               if (fromX === toX) {
                 return (
@@ -119,21 +160,25 @@ export function CommitGraph({
                 );
               }
 
-              // Both cases enter the parent from its RIGHT side.
-              //   - Branch-off (child right, parent left): J-curve. Descend
-              //     from child, sweep left at the parent's row, enter parent
-              //     from the right.
-              //   - Merge (child left, parent right): the line must approach
-              //     the parent from beyond its right edge. Use a cubic with
-              //     control 1 directly below the child (downward tangent)
-              //     and control 2 to the RIGHT of the parent (leftward
-              //     tangent), making the curve overshoot the parent and
-              //     return into its right side.
+              const R = Math.min(6, dy / 2);
               const curveAtTop = e.fromLane < e.toLane;
-              const overshoot = 14;
-              const d = curveAtTop
-                ? `M ${fromX} ${fromY} C ${fromX} ${toY}, ${toX + overshoot} ${toY}, ${toX} ${toY}`
-                : `M ${fromX} ${fromY} C ${fromX} ${toY}, ${fromX} ${toY}, ${toX} ${toY}`;
+
+              let d: string;
+              if (curveAtTop) {
+                // Exit right → go right at same level → curve down to target
+                d =
+                  `M ${fromX + NODE_R} ${fromY} ` +
+                  `L ${toX - R} ${fromY} ` +
+                  `Q ${toX} ${fromY}, ${toX} ${fromY + R} ` +
+                  `L ${toX} ${toY}`;
+              } else {
+                // Branch point exits right → goes right → curves up → enters branch child from below
+                d =
+                  `M ${toX + NODE_R} ${toY} ` +
+                  `L ${fromX - R} ${toY} ` +
+                  `Q ${fromX} ${toY}, ${fromX} ${toY - R} ` +
+                  `L ${fromX} ${fromY + NODE_R}`;
+              }
 
               return (
                 <path
@@ -196,11 +241,87 @@ export function CommitGraph({
                 selected={c.id === selectedCommitId}
                 onSelect={() => (c.isWip ? onSelectWip() : onSelectCommit(c))}
                 onCheckoutRef={onCheckoutRef}
+                onRefContextMenu={handleRefContextMenu}
               />
             ))}
           </div>
         </div>
       </div>
+
+      {branchCtxMenu && (
+        <div
+          className="ctx-menu"
+          style={{ left: branchCtxMenu.x, top: branchCtxMenu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+          role="menu"
+        >
+          {branchCtxMenu.phase === "menu" ? (
+            <>
+              <button
+                type="button"
+                className="ctx-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  onCreateBranchFrom?.(branchCtxMenu.refName);
+                  setBranchCtxMenu(null);
+                }}
+              >
+                New branch from here
+              </button>
+              <button
+                type="button"
+                className="ctx-menu-item"
+                role="menuitem"
+                onClick={() =>
+                  setBranchCtxMenu({
+                    phase: "rename",
+                    x: branchCtxMenu.x,
+                    y: branchCtxMenu.y,
+                    refName: branchCtxMenu.refName,
+                    value: branchCtxMenu.refName,
+                  })
+                }
+              >
+                Rename
+              </button>
+              <button
+                type="button"
+                className="ctx-menu-item ctx-menu-item-danger"
+                role="menuitem"
+                disabled={branchCtxMenu.isCurrent}
+                title={branchCtxMenu.isCurrent ? "Cannot delete the current branch" : undefined}
+                onClick={() => {
+                  onDeleteBranch?.(branchCtxMenu.refName);
+                  setBranchCtxMenu(null);
+                }}
+              >
+                Delete branch
+              </button>
+            </>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const newName = branchCtxMenu.value.trim();
+                if (newName && newName !== branchCtxMenu.refName) {
+                  onRenameBranch?.(branchCtxMenu.refName, newName);
+                }
+                setBranchCtxMenu(null);
+              }}
+            >
+              <input
+                ref={renameInputRef}
+                className="branch-rename-input"
+                value={branchCtxMenu.value}
+                autoFocus
+                onChange={(e) =>
+                  setBranchCtxMenu({ ...branchCtxMenu, value: e.target.value })
+                }
+              />
+            </form>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -210,9 +331,10 @@ interface CommitRowProps {
   selected: boolean;
   onSelect: () => void;
   onCheckoutRef?: (refName: string) => void;
+  onRefContextMenu?: (refName: string, isCurrent: boolean, x: number, y: number) => void;
 }
 
-function CommitRow({ commit, selected, onSelect, onCheckoutRef }: CommitRowProps) {
+function CommitRow({ commit, selected, onSelect, onCheckoutRef, onRefContextMenu }: CommitRowProps) {
   const c = commit;
 
   return (
@@ -223,7 +345,13 @@ function CommitRow({ commit, selected, onSelect, onCheckoutRef }: CommitRowProps
     >
       <div className="commit-row-cell labels">
         {(c.refs || []).map((r, idx) => (
-          <RefPill key={idx} refData={r} first={idx === 0} onCheckoutRef={onCheckoutRef} />
+          <RefPill
+            key={idx}
+            refData={r}
+            first={idx === 0}
+            onCheckoutRef={onCheckoutRef}
+            onContextMenu={onRefContextMenu}
+          />
         ))}
       </div>
 
@@ -254,10 +382,12 @@ function RefPill({
   refData,
   first,
   onCheckoutRef,
+  onContextMenu,
 }: {
   refData: CommitRef;
   first: boolean;
   onCheckoutRef?: (refName: string) => void;
+  onContextMenu?: (refName: string, isCurrent: boolean, x: number, y: number) => void;
 }) {
   if (refData.kind === "more") {
     return (
@@ -282,6 +412,12 @@ function RefPill({
         event.stopPropagation();
         if (refData.kind !== "branch" || !refData.name) return;
         onCheckoutRef?.(refData.name);
+      }}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (refData.kind !== "branch" || !refData.name) return;
+        onContextMenu?.(refData.name, !!refData.current, event.clientX, event.clientY);
       }}
     >
       <span className="pname">{refData.name}</span>

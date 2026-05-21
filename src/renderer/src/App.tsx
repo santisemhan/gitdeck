@@ -395,6 +395,20 @@ function RepoView({
     await data.createBranch(name.trim());
   }, [data]);
 
+  const handleCreateBranchFrom = useCallback(async (fromRef: string) => {
+    const name = window.prompt(`New branch name (from "${fromRef}")`);
+    if (!name?.trim()) return;
+    await data.createBranch(name.trim(), fromRef);
+  }, [data]);
+
+  const handleDeleteBranch = useCallback(async (refName: string) => {
+    await data.deleteBranch(refName);
+  }, [data]);
+
+  const handleRenameBranch = useCallback(async (oldName: string, newName: string) => {
+    await data.renameBranch(oldName, newName);
+  }, [data]);
+
   const handleEditFile = useCallback(
     async (file: ChangedFile) => {
       const fullPath = `${repoPath}/${file.path}`.replace(/\\/g, "/");
@@ -482,6 +496,9 @@ function RepoView({
             onSelectCommit={handleSelectCommit}
             onSelectWip={handleSelectWip}
             onCheckoutRef={(refName) => void handleCheckoutRef(refName)}
+            onCreateBranchFrom={(refName) => void handleCreateBranchFrom(refName)}
+            onDeleteBranch={(refName) => void handleDeleteBranch(refName)}
+            onRenameBranch={(oldName, newName) => void handleRenameBranch(oldName, newName)}
           />
           {mainView === "filePreview" && selectedFile && (
             <DiffPreviewWorkspace

@@ -27,7 +27,9 @@ export interface UseRepoData {
   push: () => Promise<void>;
   checkoutBranch: (name: string) => Promise<void>;
   checkoutRemoteBranch: (remoteBranch: string) => Promise<void>;
-  createBranch: (name: string) => Promise<void>;
+  createBranch: (name: string, startPoint?: string) => Promise<void>;
+  deleteBranch: (name: string) => Promise<void>;
+  renameBranch: (oldName: string, newName: string) => Promise<void>;
 }
 
 export function useRepoData(repoPath: string | null): UseRepoData {
@@ -206,8 +208,22 @@ export function useRepoData(repoPath: string | null): UseRepoData {
   );
 
   const createBranch = useCallback(
+    async (name: string, startPoint?: string) => {
+      await run(() => gitClient.createBranch(repoPath!, name, startPoint), `Created branch ${name}`, "Create branch failed");
+    },
+    [run, repoPath]
+  );
+
+  const deleteBranch = useCallback(
     async (name: string) => {
-      await run(() => gitClient.createBranch(repoPath!, name), `Created branch ${name}`, "Create branch failed");
+      await run(() => gitClient.deleteBranch(repoPath!, name), `Deleted branch ${name}`, "Delete branch failed");
+    },
+    [run, repoPath]
+  );
+
+  const renameBranch = useCallback(
+    async (oldName: string, newName: string) => {
+      await run(() => gitClient.renameBranch(repoPath!, oldName, newName), `Renamed branch to ${newName}`, "Rename branch failed");
     },
     [run, repoPath]
   );
@@ -226,6 +242,8 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     push,
     checkoutBranch,
     checkoutRemoteBranch,
-    createBranch
+    createBranch,
+    deleteBranch,
+    renameBranch
   };
 }
