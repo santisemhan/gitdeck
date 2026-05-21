@@ -8,6 +8,7 @@ export const Channels = {
   unstageFile: "git:unstageFile",
   stageAll: "git:stageAll",
   unstageAll: "git:unstageAll",
+  discardAll: "git:discardAll",
   commit: "git:commit",
   getHistory: "git:history",
   getCommitDetails: "git:commitDetails",

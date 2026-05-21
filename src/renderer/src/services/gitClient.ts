@@ -63,6 +63,19 @@ export const gitClient = {
   unstageAll(repoPath: string): Promise<GitOperationResult> {
     return api().unstageAll(repoPath);
   },
+  discardAll(repoPath: string): Promise<GitOperationResult> {
+    const bridge = api() as Window["gitdeck"] & { discardAll?: (repoPath: string) => Promise<GitOperationResult> };
+    if (typeof bridge.discardAll !== "function") {
+      return Promise.resolve({
+        ok: false,
+        code: 1,
+        stdout: "",
+        stderr: "",
+        message: "Discard all is not available yet. Restart the app to reload preload/main changes."
+      });
+    }
+    return bridge.discardAll(repoPath);
+  },
   commit(repoPath: string, message: string): Promise<GitOperationResult> {
     return api().commit(repoPath, message);
   },

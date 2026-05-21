@@ -38,6 +38,7 @@
   flex: 1;
   font-weight: 500;
 }
+
 .rpanel-head .branch-chip {
   background: var(--accent-soft);
   color: var(--accent);

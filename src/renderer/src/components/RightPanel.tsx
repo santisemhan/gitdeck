@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
-import { toast } from "sonner";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import type { ChangedFile, Commit } from "../data/types";
 import { formatDate, initials, splitPath, summarizeCounts } from "../data/mock";
 import { FileStatusIcon } from "./FileStatusIcon";
@@ -9,6 +8,46 @@ import {
   IconTrash,
 } from "./icons";
 import { PanelSection } from "./PanelSection";
+
+function shouldIgnoreArrowNavigation(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
+}
+
+function useArrowFileNavigation(
+  files: ChangedFile[],
+  selectedFileId: string | undefined,
+  onSelectFile: (file: ChangedFile) => void,
+) {
+  useEffect(() => {
+    if (files.length === 0) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+      if (shouldIgnoreArrowNavigation(event.target)) return;
+
+      const selectedIndex = files.findIndex((file) => file.id === selectedFileId);
+      const fallbackIndex = event.key === "ArrowDown" ? 0 : files.length - 1;
+      const currentIndex = selectedIndex >= 0 ? selectedIndex : fallbackIndex;
+      const delta = event.key === "ArrowDown" ? 1 : -1;
+      const nextIndex = Math.max(0, Math.min(currentIndex + delta, files.length - 1));
+      const nextFile = files[nextIndex];
+      if (!nextFile) return;
+
+      event.preventDefault();
+      onSelectFile(nextFile);
+      requestAnimationFrame(() => {
+        const rows = document.querySelectorAll<HTMLElement>(".file-row[data-file-id]");
+        const targetRow = Array.from(rows).find((row) => row.dataset.fileId === nextFile.id);
+        targetRow?.scrollIntoView({ block: "nearest" });
+      });
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [files, selectedFileId, onSelectFile]);
+}
 
 interface RightPanelProps {
   mode: "localChanges" | "commitDetails";
@@ -24,6 +63,7 @@ interface RightPanelProps {
   onUnstageFile: (file: ChangedFile) => void;
   onStageAll: () => void;
   onUnstageAll: () => void;
+  onRequestDiscardAll: () => void;
   onCommit: (summary: string, description: string) => void;
   onViewLocalChanges: () => void;
 }
@@ -42,6 +82,7 @@ export function RightPanel(props: RightPanelProps) {
           onUnstageFile={props.onUnstageFile}
           onStageAll={props.onStageAll}
           onUnstageAll={props.onUnstageAll}
+          onRequestDiscardAll={props.onRequestDiscardAll}
           onCommit={props.onCommit}
         />
       ) : (
@@ -74,6 +115,7 @@ function ChangedFileRow({ file, selected, onSelect, actionLabel, onAction }: Cha
       className={"file-row" + (selected ? " selected" : "")}
       onClick={() => onSelect(file)}
       title={file.path}
+      data-file-id={file.id}
     >
       <FileStatusIcon status={file.status} />
       <span className="path">
@@ -105,6 +147,7 @@ interface LocalChangesPanelProps {
   onUnstageFile: (file: ChangedFile) => void;
   onStageAll: () => void;
   onUnstageAll: () => void;
+  onRequestDiscardAll: () => void;
   onCommit: (summary: string, description: string) => void;
 }
 
@@ -118,6 +161,7 @@ function LocalChangesPanel({
   onUnstageFile,
   onStageAll,
   onUnstageAll,
+  onRequestDiscardAll,
   onCommit,
 }: LocalChangesPanelProps) {
   const minSectionHeight = 110;
@@ -219,7 +263,6 @@ function LocalChangesPanel({
 
   useEffect(() => stopResize, [stopResize]);
   useEffect(() => stopCommitResize, [stopCommitResize]);
-
   const unstagedSectionStyle = unstagedOpen
     ? {
         flex: stagedOpen ? `0 0 ${unstagedHeight}px` : "1 1 auto",
@@ -241,6 +284,13 @@ function LocalChangesPanel({
     resize: "none" as const,
   };
 
+  const navigationFiles = useMemo(
+    () => [...unstagedFiles, ...stagedFiles],
+    [unstagedFiles, stagedFiles],
+  );
+
+  useArrowFileNavigation(navigationFiles, selectedFileId, onSelectFile);
+
   return (
     <>
       <div className="rpanel-head">
@@ -248,7 +298,8 @@ function LocalChangesPanel({
           <button
             className="trash"
             title="Discard all changes"
-            onClick={() => toast("Discard not implemented in this mock")}
+            aria-label="discard all"
+            onClick={onRequestDiscardAll}
           >
             <IconTrash size={14} />
           </button>
@@ -261,7 +312,7 @@ function LocalChangesPanel({
         </span>
       </div>
 
-        <div className="files-list local-files-list" ref={filesListRef}>
+      <div className="files-list local-files-list" ref={filesListRef}>
           <PanelSection
             title="Unstaged Files"
             count={unstagedFiles.length}
@@ -447,6 +498,8 @@ function CommitDetailsPanel({
   onSelectFile,
   onViewLocalChanges,
 }: CommitDetailsPanelProps) {
+  useArrowFileNavigation(commitFiles, selectedFileId, onSelectFile);
+
   if (!commit) {
     return (
       <div className="commit-empty-state">

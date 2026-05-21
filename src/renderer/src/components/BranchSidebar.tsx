@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, type CSSProperties } from "react";
 import type { LocalBranch, RemoteBranch } from "../data/types";
 import {
   IconArrowDown,
@@ -65,10 +65,28 @@ export function BranchSidebar({
     !filter || b.name.toLowerCase().includes(filter.toLowerCase());
 
   const totalLocal = localBranches.length;
+  const totalLocalRows = totalLocal + Object.keys(grouped.folders).length;
   const totalRemote = remoteBranches.reduce(
     (s, r) => s + 1 + (r.children?.length || 0),
     0
   );
+
+  const localOpen = !collapsed.LOCAL;
+  const remoteOpen = !collapsed.REMOTE;
+  const bothOpen = localOpen && remoteOpen;
+  const localWeight = Math.max(1, totalLocalRows);
+  const remoteWeight = Math.max(1, totalRemote);
+  const totalWeight = localWeight + remoteWeight;
+  const localRatio = bothOpen ? localWeight / totalWeight : 1;
+  const remoteRatio = bothOpen ? remoteWeight / totalWeight : 1;
+  const localFlexGrow = bothOpen ? Math.min(0.7, Math.max(0.3, localRatio)) : 1;
+  const remoteFlexGrow = bothOpen ? Math.min(0.7, Math.max(0.3, remoteRatio)) : 1;
+  const localBodyStyle = bothOpen
+    ? ({ ["--split-ratio" as string]: String(localFlexGrow) } as CSSProperties)
+    : undefined;
+  const remoteBodyStyle = bothOpen
+    ? ({ ["--split-ratio" as string]: String(remoteFlexGrow) } as CSSProperties)
+    : undefined;
 
   const renderSectionHeader = (
     key: SectionKey,
@@ -130,85 +148,93 @@ export function BranchSidebar({
         />
       </div>
 
-      <div className="scroll">
-        <div className="section">
+      <div className={"scroll" + (bothOpen ? " split-open" : "")}>
+        <div
+          className={"section" + (!collapsed["LOCAL"] ? " expanded" : "")}
+        >
           {renderSectionHeader("LOCAL", <IconMonitor size={13} />, "Local", totalLocal)}
           {!collapsed["LOCAL"] && (
-            <div className="branch-group">
-              {Object.entries(grouped.folders).map(([folder, items]) => {
-                const open = !folderCollapsed[folder];
-                const visible = items.filter(filterFn);
-                if (filter && visible.length === 0) return null;
-                return (
-                  <Fragment key={folder}>
-                    <div
-                      className={"branch-folder" + (open ? "" : " collapsed")}
-                      onClick={() => toggleFolder(folder)}
-                    >
-                      <IconCaretDown size={11} className="chevron" />
-                      <IconFolder size={13} className="icon" />
-                      <span className="name">{folder}</span>
-                    </div>
-                    {open &&
-                      visible.map((b) =>
-                        renderBranchRow(b, {
-                          short: b.name.replace(folder + "/", ""),
-                          indent: 40,
-                        })
-                      )}
-                  </Fragment>
-                );
-              })}
-              {grouped._flat.filter(filterFn).map((b) => renderBranchRow(b))}
-              {totalLocal === 0 && <div className="empty-row">No branches</div>}
+            <div className="section-body" style={localBodyStyle}>
+              <div className="branch-group">
+                {Object.entries(grouped.folders).map(([folder, items]) => {
+                  const open = !folderCollapsed[folder];
+                  const visible = items.filter(filterFn);
+                  if (filter && visible.length === 0) return null;
+                  return (
+                    <Fragment key={folder}>
+                      <div
+                        className={"branch-folder" + (open ? "" : " collapsed")}
+                        onClick={() => toggleFolder(folder)}
+                      >
+                        <IconCaretDown size={11} className="chevron" />
+                        <IconFolder size={13} className="icon" />
+                        <span className="name">{folder}</span>
+                      </div>
+                      {open &&
+                        visible.map((b) =>
+                          renderBranchRow(b, {
+                            short: b.name.replace(folder + "/", ""),
+                            indent: 40,
+                          })
+                        )}
+                    </Fragment>
+                  );
+                })}
+                {grouped._flat.filter(filterFn).map((b) => renderBranchRow(b))}
+                {totalLocal === 0 && <div className="empty-row">No branches</div>}
+              </div>
             </div>
           )}
         </div>
 
-        <div className="section">
+        <div
+          className={"section" + (!collapsed["REMOTE"] ? " expanded" : "")}
+        >
           {renderSectionHeader("REMOTE", <IconCloud size={13} />, "Remote", totalRemote)}
           {!collapsed["REMOTE"] && (
-            <div className="branch-group">
-              {remoteBranches.map((b) => {
-                if (b.isFolder) {
-                  const open = !folderCollapsed["r-" + b.id];
+            <div className="section-body" style={remoteBodyStyle}>
+              <div className="branch-group">
+                {remoteBranches.map((b) => {
+                  if (b.isFolder) {
+                    const open = !folderCollapsed["r-" + b.id];
+                    return (
+                      <Fragment key={b.id}>
+                        <div
+                          className={"branch-folder" + (open ? "" : " collapsed") + " indent-22"}
+                          onClick={() => toggleFolder("r-" + b.id)}
+                        >
+                          <IconCaretDown size={11} className="chevron" />
+                          <IconFolder size={13} className="icon" />
+                          <span className="name">{b.name}</span>
+                        </div>
+                        {open &&
+                          b.children?.map((c) => (
+                            <div
+                              key={c.id}
+                              className="branch-row indent-40"
+                              onClick={() => onSelectBranch(c)}
+                              onDoubleClick={() => onCheckoutBranch(c)}
+                            >
+                              <IconBranch size={13} className="icon" />
+                              <span className="name">{c.name}</span>
+                            </div>
+                          ))}
+                      </Fragment>
+                    );
+                  }
                   return (
-                    <Fragment key={b.id}>
-                      <div
-                        className={"branch-folder" + (open ? "" : " collapsed") + " indent-22"}
-                        onClick={() => toggleFolder("r-" + b.id)}
-                      >
-                        <IconCaretDown size={11} className="chevron" />
-                        <IconFolder size={13} className="icon" />
-                        <span className="name">{b.name}</span>
-                      </div>
-                      {open &&
-                        b.children?.map((c) => (
-                          <div
-                            key={c.id}
-                            className="branch-row indent-40"
-                            onClick={() => onSelectBranch(c)}
-                            onDoubleClick={() => onCheckoutBranch(c)}
-                          >
-                            <IconBranch size={13} className="icon" />
-                            <span className="name">{c.name}</span>
-                          </div>
-                        ))}
-                    </Fragment>
+                    <div
+                      key={b.id}
+                      className="branch-row indent-22"
+                      onClick={() => onSelectBranch(b)}
+                      onDoubleClick={() => onCheckoutBranch(b)}
+                    >
+                      <IconBranch size={13} className="icon" />
+                      <span className="name">{b.name}</span>
+                    </div>
                   );
-                }
-                return (
-                  <div
-                    key={b.id}
-                    className="branch-row indent-22"
-                    onClick={() => onSelectBranch(b)}
-                    onDoubleClick={() => onCheckoutBranch(b)}
-                  >
-                    <IconBranch size={13} className="icon" />
-                    <span className="name">{b.name}</span>
-                  </div>
-                );
-              })}
+                })}
+              </div>
             </div>
           )}
         </div>

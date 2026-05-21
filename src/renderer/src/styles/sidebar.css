@@ -61,12 +61,25 @@
 
 .sidebar .scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding-bottom: 8px;
 }
 
 .sidebar .section {
   margin-top: 2px;
+}
+
+.sidebar .scroll.split-open {
+  overflow-y: hidden;
+}
+
+.sidebar .section-body {
+  overflow-y: auto;
+}
+
+.sidebar .scroll.split-open .section-body {
+  max-height: clamp(120px, calc(var(--split-ratio, 0.5) * (100vh - 220px)), 9999px);
 }
 .section-header {
   display: flex;

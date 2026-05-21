@@ -90,6 +90,7 @@ export function registerIpcHandlers() {
   ipcMain.handle(Channels.unstageFile, (_e, repoPath: string, filePath: string) => gitService.unstageFile(repoPath, filePath));
   ipcMain.handle(Channels.stageAll, (_e, repoPath: string) => gitService.stageAll(repoPath));
   ipcMain.handle(Channels.unstageAll, (_e, repoPath: string) => gitService.unstageAll(repoPath));
+  ipcMain.handle(Channels.discardAll, (_e, repoPath: string) => gitService.discardAll(repoPath));
   ipcMain.handle(Channels.commit, (_e, repoPath: string, message: string) => gitService.commit(repoPath, message));
   ipcMain.handle(Channels.getHistory, (_e, repoPath: string) => gitService.getHistory(repoPath));
   ipcMain.handle(Channels.getCommitDetails, (_e, repoPath: string, hash: string) => gitService.getCommitDetails(repoPath, hash));

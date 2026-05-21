@@ -21,6 +21,7 @@ export interface UseRepoData {
   unstageFile: (path: string) => Promise<void>;
   stageAll: () => Promise<void>;
   unstageAll: () => Promise<void>;
+  discardAll: () => Promise<void>;
   commit: (message: string) => Promise<boolean>;
   pull: () => Promise<void>;
   push: () => Promise<void>;
@@ -160,6 +161,13 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     [run, repoPath]
   );
 
+  const discardAll = useCallback(
+    async () => {
+      await run(() => gitClient.discardAll(repoPath!), "Discarded all local changes", "Failed to discard all changes");
+    },
+    [run, repoPath]
+  );
+
   const commit = useCallback(
     async (message: string) => run(() => gitClient.commit(repoPath!, message), "Commit created", "Commit failed"),
     [run, repoPath]
@@ -212,6 +220,7 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     unstageFile,
     stageAll,
     unstageAll,
+    discardAll,
     commit,
     pull,
     push,

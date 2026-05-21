@@ -213,6 +213,24 @@ export class GitService {
     return ok(result);
   }
 
+  async discardAll(repoPath: string): Promise<GitOperationResult> {
+    const unstage = await runGit(repoPath, ["restore", "--staged", "."]);
+    if (unstage.code !== 0) return fail(unstage, "Failed to discard all changes");
+
+    const restore = await runGit(repoPath, ["restore", "."]);
+    if (restore.code !== 0) return fail(restore, "Failed to discard all changes");
+
+    const clean = await runGit(repoPath, ["clean", "-fd"]);
+    if (clean.code !== 0) return fail(clean, "Failed to discard all changes");
+
+    return {
+      ok: true,
+      code: 0,
+      stdout: [unstage.stdout, restore.stdout, clean.stdout].filter(Boolean).join("\n"),
+      stderr: [unstage.stderr, restore.stderr, clean.stderr].filter(Boolean).join("\n")
+    };
+  }
+
   async commit(repoPath: string, message: string): Promise<GitOperationResult> {
     if (!message.trim()) {
       return { ok: false, code: 1, stdout: "", stderr: "", message: "Commit message cannot be empty." };

@@ -96,6 +96,7 @@ function RepoView({
   const [commitFiles, setCommitFiles] = useState<ChangedFile[]>([]);
   const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
   const [branchQuery, setBranchQuery] = useState("");
+  const [showDiscardAllBanner, setShowDiscardAllBanner] = useState(false);
   const branchMenuRef = useRef<HTMLDivElement | null>(null);
 
   const { unstaged, staged } = useMemo(
@@ -273,6 +274,21 @@ function RepoView({
     await data.unstageAll();
   }, [data, staged.length]);
 
+  const handleDiscardAll = useCallback(async () => {
+    if (unstaged.length + staged.length === 0) return;
+    setSelectedFile(null);
+    setSelectedFileSource(null);
+    setMainView("graph");
+    await data.discardAll();
+    setShowDiscardAllBanner(false);
+  }, [data, staged.length, unstaged.length]);
+
+  useEffect(() => {
+    if (unstaged.length + staged.length === 0) {
+      setShowDiscardAllBanner(false);
+    }
+  }, [staged.length, unstaged.length]);
+
   const handleCommit = useCallback(
     async (summary: string, description: string) => {
       const message = description ? `${summary}\n\n${description}` : summary;
@@ -403,7 +419,8 @@ function RepoView({
   }, []);
 
   return (
-    <div className="app">
+    <div className={"app" + (showDiscardAllBanner ? " discard-lock" : "")}>
+      {showDiscardAllBanner && <div className="discard-ui-lock" aria-hidden="true" />}
       <RepoTabBar
         openRepos={openRepos}
         activePath={activePath}
@@ -412,26 +429,42 @@ function RepoView({
         onCloseRepo={onCloseRepo}
       />
 
-      <RepoToolbar
-        repoName={repoName}
-        currentBranch={currentBranch}
-        statusAhead={status?.ahead || 0}
-        statusBehind={status?.behind || 0}
-        localBranches={localBranches}
-        remoteBranches={remoteBranches}
-        currentBranchId={currentBranchId}
-        branchMenuRef={branchMenuRef}
-        isBranchMenuOpen={isBranchMenuOpen}
-        branchQuery={branchQuery}
-        filteredBranchMenuItems={filteredBranchMenuItems}
-        onToggleBranchMenu={() => setIsBranchMenuOpen((open) => !open)}
-        onBranchQueryChange={setBranchQuery}
-        onBranchSubmit={() => void handleBranchMenuSubmit()}
-        onBranchSelect={(branch) => void handleBranchMenuSelect(branch)}
-        onPull={() => void data.pull()}
-        onPush={() => void data.push()}
-        onCreateBranch={() => void handleCreateBranch()}
-      />
+      <div className="top-controls">
+        {showDiscardAllBanner && totalLocalChanges > 0 && (
+          <div className="discard-global-banner" role="alertdialog" aria-live="polite">
+            <span className="discard-global-banner-text">This will discard staged, unstaged, and untracked files. Are you sure?</span>
+            <div className="discard-global-banner-actions">
+              <button className="discard-global-banner-btn danger" onClick={() => void handleDiscardAll()}>
+                Discard All
+              </button>
+              <button className="discard-global-banner-btn" onClick={() => setShowDiscardAllBanner(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        <RepoToolbar
+          repoName={repoName}
+          currentBranch={currentBranch}
+          statusAhead={status?.ahead || 0}
+          statusBehind={status?.behind || 0}
+          localBranches={localBranches}
+          remoteBranches={remoteBranches}
+          currentBranchId={currentBranchId}
+          branchMenuRef={branchMenuRef}
+          isBranchMenuOpen={isBranchMenuOpen}
+          branchQuery={branchQuery}
+          filteredBranchMenuItems={filteredBranchMenuItems}
+          onToggleBranchMenu={() => setIsBranchMenuOpen((open) => !open)}
+          onBranchQueryChange={setBranchQuery}
+          onBranchSubmit={() => void handleBranchMenuSubmit()}
+          onBranchSelect={(branch) => void handleBranchMenuSelect(branch)}
+          onPull={() => void data.pull()}
+          onPush={() => void data.push()}
+          onCreateBranch={() => void handleCreateBranch()}
+        />
+      </div>
 
       <div className="workarea">
         <BranchSidebar
@@ -481,6 +514,7 @@ function RepoView({
           onUnstageFile={handleUnstageFile}
           onStageAll={handleStageAll}
           onUnstageAll={handleUnstageAll}
+          onRequestDiscardAll={() => setShowDiscardAllBanner(true)}
           onCommit={handleCommit}
           onViewLocalChanges={handleViewLocalChanges}
         />

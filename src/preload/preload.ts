@@ -1,38 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-
-const Channels = {
-  selectRepository: "repo:select",
-  getRecentRepositories: "repo:recent",
-
-  getStatus: "git:status",
-  getDiff: "git:diff",
-  stageFile: "git:stageFile",
-  unstageFile: "git:unstageFile",
-  stageAll: "git:stageAll",
-  unstageAll: "git:unstageAll",
-  commit: "git:commit",
-  getHistory: "git:history",
-  getCommitDetails: "git:commitDetails",
-  getCommitFileDiff: "git:commitFileDiff",
-  getFileContent: "git:fileContent",
-  getSplitContent: "git:splitContent",
-  getBranches: "git:branches",
-  checkoutBranch: "git:checkoutBranch",
-  checkoutRemoteBranch: "git:checkoutRemoteBranch",
-  createBranch: "git:createBranch",
-  pull: "git:pull",
-  push: "git:push",
-  cherryPick: "git:cherryPick",
-  continueCherryPick: "git:continueCherryPick",
-  abortCherryPick: "git:abortCherryPick",
-  watchRepository: "git:watchRepository",
-  unwatchRepository: "git:unwatchRepository",
-  repositoryChanged: "git:repositoryChanged",
-
-  isVSCodeAvailable: "editor:isVSCodeAvailable",
-  openFileInVSCode: "editor:openFileInVSCode",
-  openRepoInVSCode: "editor:openRepoInVSCode"
-} as const;
+import { Channels } from "../shared/channels";
 
 contextBridge.exposeInMainWorld("gitdeck", {
   selectRepository: () => ipcRenderer.invoke(Channels.selectRepository),
@@ -44,6 +11,7 @@ contextBridge.exposeInMainWorld("gitdeck", {
   unstageFile: (repoPath: string, filePath: string) => ipcRenderer.invoke(Channels.unstageFile, repoPath, filePath),
   stageAll: (repoPath: string) => ipcRenderer.invoke(Channels.stageAll, repoPath),
   unstageAll: (repoPath: string) => ipcRenderer.invoke(Channels.unstageAll, repoPath),
+  discardAll: (repoPath: string) => ipcRenderer.invoke(Channels.discardAll, repoPath),
   commit: (repoPath: string, message: string) => ipcRenderer.invoke(Channels.commit, repoPath, message),
   getHistory: (repoPath: string) => ipcRenderer.invoke(Channels.getHistory, repoPath),
   getCommitDetails: (repoPath: string, commitHash: string) => ipcRenderer.invoke(Channels.getCommitDetails, repoPath, commitHash),

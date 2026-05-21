@@ -22,6 +22,7 @@ declare global {
       unstageFile(repoPath: string, filePath: string): Promise<GitOperationResult>;
       stageAll(repoPath: string): Promise<GitOperationResult>;
       unstageAll(repoPath: string): Promise<GitOperationResult>;
+      discardAll(repoPath: string): Promise<GitOperationResult>;
       commit(repoPath: string, message: string): Promise<GitOperationResult>;
       getHistory(repoPath: string): Promise<any[]>;
       getCommitDetails(repoPath: string, commitHash: string): Promise<CommitDetails>;
