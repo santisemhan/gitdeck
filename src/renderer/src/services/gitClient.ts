@@ -4,8 +4,10 @@ import type {
   GitCommit,
   GitDiff,
   GitOperationResult,
+  RepoChangeEvent,
   GitStatus,
-  Repository
+  Repository,
+  WatchOperationResult
 } from "../../../shared/types";
 
 const api = () => window.gitdeck;
@@ -74,6 +76,15 @@ export const gitClient = {
   },
   createBranch(repoPath: string, name: string, startPoint?: string): Promise<GitOperationResult> {
     return api().createBranch(repoPath, name, startPoint);
+  },
+  watchRepository(repoPath: string): Promise<WatchOperationResult> {
+    return api().watchRepository(repoPath);
+  },
+  unwatchRepository(): Promise<WatchOperationResult> {
+    return api().unwatchRepository();
+  },
+  onRepositoryChanged(listener: (event: RepoChangeEvent) => void): () => void {
+    return api().onRepositoryChanged(listener);
   },
   openRepoInVSCode(repoPath: string) {
     return api().openRepositoryInVSCode(repoPath);

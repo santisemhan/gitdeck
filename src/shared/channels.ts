@@ -22,6 +22,9 @@ export const Channels = {
   cherryPick: "git:cherryPick",
   continueCherryPick: "git:continueCherryPick",
   abortCherryPick: "git:abortCherryPick",
+  watchRepository: "git:watchRepository",
+  unwatchRepository: "git:unwatchRepository",
+  repositoryChanged: "git:repositoryChanged",
 
   isVSCodeAvailable: "editor:isVSCodeAvailable",
   openFileInVSCode: "editor:openFileInVSCode",

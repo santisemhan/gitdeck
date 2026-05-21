@@ -89,6 +89,16 @@ export interface EditorOperationResult {
   message: string;
 }
 
+export interface WatchOperationResult {
+  ok: boolean;
+  message?: string;
+}
+
+export interface RepoChangeEvent {
+  repoPath: string;
+  changedAt: number;
+}
+
 export interface CommitDetails {
   commit: GitCommit;
   files: GitFileChange[];

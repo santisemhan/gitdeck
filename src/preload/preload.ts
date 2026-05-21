@@ -24,6 +24,9 @@ const Channels = {
   cherryPick: "git:cherryPick",
   continueCherryPick: "git:continueCherryPick",
   abortCherryPick: "git:abortCherryPick",
+  watchRepository: "git:watchRepository",
+  unwatchRepository: "git:unwatchRepository",
+  repositoryChanged: "git:repositoryChanged",
 
   isVSCodeAvailable: "editor:isVSCodeAvailable",
   openFileInVSCode: "editor:openFileInVSCode",
@@ -54,6 +57,13 @@ contextBridge.exposeInMainWorld("gitdeck", {
   cherryPick: (repoPath: string, commitHash: string) => ipcRenderer.invoke(Channels.cherryPick, repoPath, commitHash),
   continueCherryPick: (repoPath: string) => ipcRenderer.invoke(Channels.continueCherryPick, repoPath),
   abortCherryPick: (repoPath: string) => ipcRenderer.invoke(Channels.abortCherryPick, repoPath),
+  watchRepository: (repoPath: string) => ipcRenderer.invoke(Channels.watchRepository, repoPath),
+  unwatchRepository: () => ipcRenderer.invoke(Channels.unwatchRepository),
+  onRepositoryChanged: (listener: (event: { repoPath: string; changedAt: number }) => void) => {
+    const handler = (_event: unknown, payload: { repoPath: string; changedAt: number }) => listener(payload);
+    ipcRenderer.on(Channels.repositoryChanged, handler);
+    return () => ipcRenderer.off(Channels.repositoryChanged, handler);
+  },
 
   isVSCodeAvailable: () => ipcRenderer.invoke(Channels.isVSCodeAvailable),
   openFileInVSCode: (filePath: string) => ipcRenderer.invoke(Channels.openFileInVSCode, filePath),

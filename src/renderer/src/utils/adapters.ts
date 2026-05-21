@@ -53,6 +53,9 @@ export function parseRefs(refs: string): CommitRef[] {
   if (!refs) return [];
   const out: CommitRef[] = [];
   for (const part of refs.split(",").map((s) => s.trim()).filter(Boolean)) {
+    if (/^[^/]+\/HEAD(\s+->\s+.+)?$/.test(part)) {
+      continue;
+    }
     if (part.startsWith("tag: ")) {
       out.push({ kind: "tag", name: part.slice(5) });
     } else if (part.startsWith("HEAD -> ")) {
@@ -63,7 +66,20 @@ export function parseRefs(refs: string): CommitRef[] {
       out.push({ kind: "branch", name: part });
     }
   }
-  return out;
+
+  const localBranchNames = new Set(
+    out
+      .filter((r) => r.kind === "branch" && r.name && !r.name.includes("/"))
+      .map((r) => r.name as string)
+  );
+
+  return out.filter((r) => {
+    if (r.kind !== "branch" || !r.name) return true;
+    const slash = r.name.indexOf("/");
+    if (slash <= 0) return true;
+    const remoteBranchName = r.name.slice(slash + 1);
+    return !localBranchNames.has(remoteBranchName);
+  });
 }
 
 export function toCommits(

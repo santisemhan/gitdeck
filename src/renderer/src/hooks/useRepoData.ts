@@ -33,6 +33,7 @@ export function useRepoData(repoPath: string | null): UseRepoData {
   const [data, setData] = useState<RepoSnapshot>({ status: null, history: [], branches: [] });
   const [loading, setLoading] = useState(false);
   const inflight = useRef(0);
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
     if (!repoPath) return;
@@ -65,6 +66,46 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [load]);
+
+  useEffect(() => {
+    if (!repoPath) return;
+
+    const queueRefresh = () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      refreshTimer.current = setTimeout(() => {
+        refreshTimer.current = null;
+        void load();
+      }, 220);
+    };
+
+    let unlisten: (() => void) | null = null;
+    let cancelled = false;
+
+    void (async () => {
+      const watchResult = await gitClient.watchRepository(repoPath);
+      if (!watchResult.ok) {
+        toast.error(describeError(watchResult.message, "Could not enable live refresh"));
+        return;
+      }
+      if (cancelled) {
+        void gitClient.unwatchRepository();
+        return;
+      }
+      unlisten = gitClient.onRepositoryChanged((event) => {
+        if (event.repoPath === repoPath) queueRefresh();
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      if (refreshTimer.current) {
+        clearTimeout(refreshTimer.current);
+        refreshTimer.current = null;
+      }
+      if (unlisten) unlisten();
+      void gitClient.unwatchRepository();
+    };
+  }, [repoPath, load]);
 
   const run = useCallback(
     async (

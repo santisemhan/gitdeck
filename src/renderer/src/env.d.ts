@@ -1,11 +1,13 @@
 import type {
   CommitDetails,
   EditorOperationResult,
+  RepoChangeEvent,
   GitBranch,
   GitDiff,
   GitOperationResult,
   GitStatus,
-  Repository
+  Repository,
+  WatchOperationResult
 } from "../../shared/types";
 
 declare global {
@@ -33,6 +35,9 @@ declare global {
       cherryPick(repoPath: string, commitHash: string): Promise<GitOperationResult>;
       continueCherryPick(repoPath: string): Promise<GitOperationResult>;
       abortCherryPick(repoPath: string): Promise<GitOperationResult>;
+      watchRepository(repoPath: string): Promise<WatchOperationResult>;
+      unwatchRepository(): Promise<WatchOperationResult>;
+      onRepositoryChanged(listener: (event: RepoChangeEvent) => void): () => void;
       isVSCodeAvailable(): Promise<boolean>;
       openFileInVSCode(filePath: string): Promise<EditorOperationResult>;
       openRepositoryInVSCode(repoPath: string): Promise<EditorOperationResult>;
