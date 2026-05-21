@@ -3,6 +3,7 @@ import type {
   GitBranch,
   GitCommit,
   GitDiff,
+  GitSplitContent,
   GitOperationResult,
   RepoChangeEvent,
   GitStatus,
@@ -43,6 +44,9 @@ export const gitClient = {
   },
   fileContent(repoPath: string, filePath: string, source: "unstaged" | "staged" | "commit", commitHash?: string): Promise<{ text: string; isBinary: boolean }> {
     return api().getFileContent(repoPath, filePath, source, commitHash);
+  },
+  splitContent(repoPath: string, filePath: string, source: "unstaged" | "staged" | "commit", commitHash?: string): Promise<GitSplitContent> {
+    return api().getSplitContent(repoPath, filePath, source, commitHash);
   },
   commitDetails(repoPath: string, hash: string): Promise<CommitDetails> {
     return api().getCommitDetails(repoPath, hash);

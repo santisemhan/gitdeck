@@ -3,23 +3,11 @@ import { Toaster, toast } from "sonner";
 import { BranchSidebar } from "./components/BranchSidebar";
 import { CommitGraph } from "./components/CommitGraph";
 import { DiffPreviewWorkspace } from "./components/DiffPreviewWorkspace";
+import { RepoStatusBar } from "./components/RepoStatusBar";
+import { RepoTabBar } from "./components/RepoTabBar";
+import { RepoToolbar } from "./components/RepoToolbar";
 import { RepositoryLauncher } from "./components/RepositoryLauncher";
 import { RightPanel } from "./components/RightPanel";
-import {
-  IconArchiveDown,
-  IconArchiveUp,
-  IconArrowClockwise,
-  IconArrowCounterclockwise,
-  IconBell,
-  IconBranch,
-  IconCaretDown,
-  IconCloudArrowDown,
-  IconCloudArrowUp,
-  IconGear,
-  IconSearch,
-  IconTerminal,
-  IconX,
-} from "./components/icons";
 import { useActiveRepo } from "./hooks/useActiveRepo";
 import { useRepoData } from "./hooks/useRepoData";
 import { gitClient } from "./services/gitClient";
@@ -40,35 +28,9 @@ import type {
   SelectedFileSource,
 } from "./data/types";
 
-interface ToolbarActionProps {
-  icon: React.ReactNode;
+interface BranchMenuItem {
+  branch: LocalBranch | RemoteBranch;
   label: string;
-  badge?: number;
-  disabled?: boolean;
-  split?: boolean;
-  onClick?: () => void;
-}
-
-function ToolbarAction({ icon, label, badge, disabled, split, onClick }: ToolbarActionProps) {
-  return (
-    <button
-      className={"toolbar-action" + (split ? " split-caret" : "")}
-      disabled={disabled}
-      onClick={onClick}
-      title={label}
-    >
-      <span className="ico">
-        {icon}
-        {badge != null && badge > 0 && <span className="badge">{badge}</span>}
-      </span>
-      <span className="lbl">{label}</span>
-      {split && (
-        <span className="caret">
-          <IconCaretDown size={9} />
-        </span>
-      )}
-    </button>
-  );
 }
 
 export function App() {
@@ -148,6 +110,12 @@ function RepoView({
     return `${branch.remote}/${remotePath}`;
   }, []);
 
+  const getBranchMenuLabel = useCallback((branch: LocalBranch | RemoteBranch) => {
+    if (branch.type === "local") return branch.name;
+    const remotePath = branch.folder ? `${branch.folder}/${branch.name}` : branch.name;
+    return branch.remote === "origin" ? remotePath : `${branch.remote}/${remotePath}`;
+  }, []);
+
   const { local: localBranches, remote: remoteBranches, currentBranchId } = useMemo(
     () => toBranches(branches, status),
     [branches, status]
@@ -166,14 +134,28 @@ function RepoView({
     [localBranches, remoteBranches]
   );
 
-  const filteredBranches = useMemo(() => {
+  const branchMenuItems = useMemo<BranchMenuItem[]>(() => {
+    const deduped = new Map<string, BranchMenuItem>();
+    for (const branch of allBranches) {
+      const label = getBranchMenuLabel(branch);
+      const key = label.toLowerCase();
+      const current = deduped.get(key);
+      if (!current) {
+        deduped.set(key, { branch, label });
+        continue;
+      }
+      if (current.branch.type === "remote" && branch.type === "local") {
+        deduped.set(key, { branch, label });
+      }
+    }
+    return Array.from(deduped.values());
+  }, [allBranches, getBranchMenuLabel]);
+
+  const filteredBranchMenuItems = useMemo(() => {
     const query = branchQuery.trim().toLowerCase();
-    if (!query) return allBranches;
-    return allBranches.filter((branch) => {
-      const fullName = branch.type === "remote" ? getRemoteBranchRef(branch) : branch.name;
-      return fullName.toLowerCase().includes(query);
-    });
-  }, [allBranches, branchQuery, getRemoteBranchRef]);
+    if (!query) return branchMenuItems;
+    return branchMenuItems.filter(({ label }) => label.toLowerCase().includes(query));
+  }, [branchMenuItems, branchQuery]);
 
   useEffect(() => {
     if (!selectedCommit || selectedCommit.isWip) {
@@ -210,13 +192,17 @@ function RepoView({
     return () => window.removeEventListener("mousedown", handlePointerDown);
   }, [isBranchMenuOpen]);
 
+  const resetToGraph = useCallback(() => {
+    setSelectedCommit(null);
+    setRightPanelMode("localChanges");
+    setMainView("graph");
+    setSelectedFile(null);
+    setSelectedFileSource(null);
+  }, []);
+
   const handleSelectCommit = useCallback((commit: Commit) => {
     if (commit.isWip) {
-      setSelectedCommit(null);
-      setRightPanelMode("localChanges");
-      setMainView("graph");
-      setSelectedFile(null);
-      setSelectedFileSource(null);
+      resetToGraph();
       return;
     }
     setSelectedCommit(commit);
@@ -224,15 +210,11 @@ function RepoView({
     setMainView("graph");
     setSelectedFile(null);
     setSelectedFileSource(null);
-  }, []);
+  }, [resetToGraph]);
 
   const handleSelectWip = useCallback(() => {
-    setSelectedCommit(null);
-    setRightPanelMode("localChanges");
-    setMainView("graph");
-    setSelectedFile(null);
-    setSelectedFileSource(null);
-  }, []);
+    resetToGraph();
+  }, [resetToGraph]);
 
   const handleCloseDiff = useCallback(() => {
     setSelectedFile(null);
@@ -376,23 +358,20 @@ function RepoView({
     if (!query) return;
 
     const normalizedQuery = query.toLowerCase();
-    const exactMatch = allBranches.find((branch) => {
-      const label = branch.type === "remote" ? getRemoteBranchRef(branch) : branch.name;
-      return label.toLowerCase() === normalizedQuery;
-    });
+    const exactMatch = branchMenuItems.find(({ label }) => label.toLowerCase() === normalizedQuery)?.branch;
 
     if (exactMatch) {
       await handleBranchMenuSelect(exactMatch);
       return;
     }
 
-    if (filteredBranches.length === 1) {
-      await handleBranchMenuSelect(filteredBranches[0]!);
+    if (filteredBranchMenuItems.length === 1) {
+      await handleBranchMenuSelect(filteredBranchMenuItems[0]!.branch);
       return;
     }
 
     toast.error("Type the full branch name or narrow your search");
-  }, [allBranches, branchQuery, filteredBranches, getRemoteBranchRef, handleBranchMenuSelect]);
+  }, [branchMenuItems, branchQuery, filteredBranchMenuItems, handleBranchMenuSelect]);
 
   const handleCreateBranch = useCallback(async () => {
     const name = window.prompt("New branch name");
@@ -416,148 +395,43 @@ function RepoView({
 
   const totalLocalChanges = unstaged.length + staged.length;
 
+  const handleViewLocalChanges = useCallback(() => {
+    setRightPanelMode("localChanges");
+    setMainView("graph");
+    setSelectedFile(null);
+    setSelectedFileSource(null);
+  }, []);
+
   return (
     <div className="app">
-      <div className="tabbar">
-        <button className="icon-btn" title="Launchpad" onClick={onCloseAll}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M2 4h12M2 8h12M2 12h12" />
-          </svg>
-        </button>
-        {openRepos.map((openRepo) => {
-          const isActive = openRepo.path === activePath;
-          return (
-            <div
-              key={openRepo.path}
-              className={"tab" + (isActive ? " active" : "")}
-              onClick={() => onSwitchRepo(openRepo.path)}
-              title={openRepo.path}
-            >
-              <span className="branch-icon">
-                <IconBranch size={11} />
-              </span>
-              {openRepo.name}
-              <button
-                className="close"
-                title="Close repository"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onCloseRepo(openRepo.path);
-                }}
-              >
-                <IconX size={10} />
-              </button>
-            </div>
-          );
-        })}
-        <button className="new-tab" title="Open repository" onClick={onCloseAll}>
-          +
-        </button>
+      <RepoTabBar
+        openRepos={openRepos}
+        activePath={activePath}
+        onCloseAll={onCloseAll}
+        onSwitchRepo={onSwitchRepo}
+        onCloseRepo={onCloseRepo}
+      />
 
-        <div className="right">
-          <button className="icon-btn" title="Notifications">
-            <IconBell size={14} />
-            <span className="dot" />
-          </button>
-          <button className="icon-btn" title="Settings">
-            <IconGear size={14} />
-          </button>
-        </div>
-      </div>
-
-      <div className="toolbar">
-        <div className="field">
-          <span className="label">repository</span>
-          <span className="value">{repoName}</span>
-        </div>
-        <div className="divider" />
-        <div className="field branch-field" ref={branchMenuRef}>
-          <span className="label">branch</span>
-          <button
-            className="value branch-value-btn"
-            title="Switch branch"
-            onClick={() => setIsBranchMenuOpen((open) => !open)}
-          >
-            {currentBranch}
-            <IconCaretDown size={12} style={{ color: "var(--text-3)" }} />
-          </button>
-          {isBranchMenuOpen && (
-            <div className="branch-menu">
-              <input
-                type="text"
-                placeholder="Search branches"
-                value={branchQuery}
-                onChange={(event) => setBranchQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    void handleBranchMenuSubmit();
-                  }
-                }}
-                autoFocus
-              />
-              <div className="branch-menu-list">
-                {filteredBranches.map((branch) => {
-                  const label = branch.type === "remote" ? getRemoteBranchRef(branch) : branch.name;
-                  const isCurrent = branch.id === currentBranchId;
-                  return (
-                    <button
-                      key={branch.id}
-                      className={"branch-menu-item" + (isCurrent ? " current" : "")}
-                      onClick={() => void handleBranchMenuSelect(branch)}
-                    >
-                      <IconBranch size={12} />
-                      <span>{label}</span>
-                    </button>
-                  );
-                })}
-                {filteredBranches.length === 0 && (
-                  <div className="branch-menu-empty">No branches found</div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="actions">
-          <ToolbarAction icon={<IconArrowCounterclockwise size={16} />} label="Undo" disabled />
-          <ToolbarAction icon={<IconArrowClockwise size={16} />} label="Redo" disabled />
-          <ToolbarAction
-            icon={<IconCloudArrowDown size={16} />}
-            label="Pull"
-            badge={status?.behind || 0}
-            onClick={() => void data.pull()}
-          />
-          <ToolbarAction
-            icon={<IconCloudArrowUp size={16} />}
-            label="Push"
-            badge={status?.ahead || 0}
-            onClick={() => void data.push()}
-          />
-          <ToolbarAction icon={<IconBranch size={16} />} label="Branch" onClick={handleCreateBranch} />
-          <ToolbarAction
-            icon={<IconArchiveDown size={16} />}
-            label="Stash"
-            disabled
-          />
-          <ToolbarAction
-            icon={<IconArchiveUp size={16} />}
-            label="Pop"
-            disabled
-          />
-          <div className="divider" style={{ margin: "10px 4px" }} />
-          <ToolbarAction
-            icon={<IconTerminal size={16} />}
-            label="Terminal"
-            disabled
-          />
-          <div className="divider" style={{ margin: "10px 4px" }} />
-          <button className="toolbar-action" style={{ minWidth: 0, padding: "4px 8px" }} title="Search">
-            <span className="ico">
-              <IconSearch size={15} />
-            </span>
-          </button>
-        </div>
-      </div>
+      <RepoToolbar
+        repoName={repoName}
+        currentBranch={currentBranch}
+        statusAhead={status?.ahead || 0}
+        statusBehind={status?.behind || 0}
+        localBranches={localBranches}
+        remoteBranches={remoteBranches}
+        currentBranchId={currentBranchId}
+        branchMenuRef={branchMenuRef}
+        isBranchMenuOpen={isBranchMenuOpen}
+        branchQuery={branchQuery}
+        filteredBranchMenuItems={filteredBranchMenuItems}
+        onToggleBranchMenu={() => setIsBranchMenuOpen((open) => !open)}
+        onBranchQueryChange={setBranchQuery}
+        onBranchSubmit={() => void handleBranchMenuSubmit()}
+        onBranchSelect={(branch) => void handleBranchMenuSelect(branch)}
+        onPull={() => void data.pull()}
+        onPush={() => void data.push()}
+        onCreateBranch={() => void handleCreateBranch()}
+      />
 
       <div className="workarea">
         <BranchSidebar
@@ -568,7 +442,7 @@ function RepoView({
           onCheckoutBranch={handleCheckoutBranch}
         />
 
-        <div className="center" style={{ position: "relative" }}>
+        <div className="center">
           <CommitGraph
             commits={commits}
             selectedCommitId={selectedCommit?.id}
@@ -601,43 +475,24 @@ function RepoView({
           unstagedFiles={unstaged}
           stagedFiles={staged}
           currentBranch={currentBranch}
+          totalLocalChanges={totalLocalChanges}
           onSelectFile={handleSelectFile}
           onStageFile={handleStageFile}
           onUnstageFile={handleUnstageFile}
           onStageAll={handleStageAll}
           onUnstageAll={handleUnstageAll}
           onCommit={handleCommit}
+          onViewLocalChanges={handleViewLocalChanges}
         />
       </div>
 
-      <div className="statusbar">
-        <span className="item">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-            <rect width="10" height="10" rx="2" fill="var(--bg-3)" />
-            <path d="M3 5h4M5 3v4" stroke="var(--text-3)" strokeWidth="1.2" />
-          </svg>
-          {history.length} commits
-        </span>
-        <span className="item">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-            <circle cx="5" cy="5" r="4" stroke="var(--text-3)" strokeWidth="1.2" />
-          </svg>
-          {localBranches.length} branches
-        </span>
-        {totalLocalChanges > 0 && (
-          <span className="item" style={{ color: "var(--mod)" }}>
-            {totalLocalChanges} changed
-          </span>
-        )}
-        {status?.state.operationState && status.state.operationState !== "normal" && (
-          <span className="item" style={{ color: "var(--del)" }}>
-            {status.state.operationState}
-          </span>
-        )}
-        <div className="right">
-          <span className="item">{repoPath}</span>
-        </div>
-      </div>
+      <RepoStatusBar
+        commitCount={history.length}
+        branchCount={localBranches.length}
+        totalLocalChanges={totalLocalChanges}
+        operationState={status?.state.operationState}
+        repoPath={repoPath}
+      />
     </div>
   );
 }

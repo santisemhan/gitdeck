@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { toast } from "sonner";
 import type { ChangedFile, Commit } from "../data/types";
 import { formatDate, initials, splitPath, summarizeCounts } from "../data/mock";
@@ -6,12 +6,9 @@ import { FileStatusIcon } from "./FileStatusIcon";
 import {
   IconCloudArrowUp,
   IconCommit,
-  IconEye,
-  IconPath,
-  IconSort,
   IconTrash,
-  IconTree,
 } from "./icons";
+import { PanelSection } from "./PanelSection";
 
 interface RightPanelProps {
   mode: "localChanges" | "commitDetails";
@@ -21,12 +18,14 @@ interface RightPanelProps {
   unstagedFiles: ChangedFile[];
   stagedFiles: ChangedFile[];
   currentBranch: string;
+  totalLocalChanges: number;
   onSelectFile: (file: ChangedFile) => void;
   onStageFile: (file: ChangedFile) => void;
   onUnstageFile: (file: ChangedFile) => void;
   onStageAll: () => void;
   onUnstageAll: () => void;
   onCommit: (summary: string, description: string) => void;
+  onViewLocalChanges: () => void;
 }
 
 export function RightPanel(props: RightPanelProps) {
@@ -49,8 +48,11 @@ export function RightPanel(props: RightPanelProps) {
         <CommitDetailsPanel
           commit={props.selectedCommit}
           commitFiles={props.commitFiles}
+          totalLocalChanges={props.totalLocalChanges}
+          currentBranch={props.currentBranch}
           selectedFileId={props.selectedFileId}
           onSelectFile={props.onSelectFile}
+          onViewLocalChanges={props.onViewLocalChanges}
         />
       )}
     </div>
@@ -118,70 +120,172 @@ function LocalChangesPanel({
   onUnstageAll,
   onCommit,
 }: LocalChangesPanelProps) {
+  const minSectionHeight = 110;
+  const minCommitHeight = 210;
+  const minFilesHeight = 120;
   const totalCount = unstagedFiles.length + stagedFiles.length;
   const [unstagedOpen, setUnstagedOpen] = useState(true);
   const [stagedOpen, setStagedOpen] = useState(true);
-  const [pathView, setPathView] = useState<"path" | "tree">("path");
+  const [commitHeight, setCommitHeight] = useState(250);
+  const [unstagedHeight, setUnstagedHeight] = useState(250);
+  const filesListRef = useRef<HTMLDivElement>(null);
+  const resizeRef = useRef<{
+    startY: number;
+    startHeight: number;
+    maxHeight: number;
+  } | null>(null);
+  const commitResizeRef = useRef<{
+    startY: number;
+    startHeight: number;
+    maxHeight: number;
+  } | null>(null);
+
+  const onResizeMove = useCallback(
+    (event: MouseEvent) => {
+      const state = resizeRef.current;
+      if (!state) return;
+      const delta = event.clientY - state.startY;
+      const nextHeight = Math.max(minSectionHeight, Math.min(state.startHeight + delta, state.maxHeight));
+      setUnstagedHeight(nextHeight);
+    },
+    [minSectionHeight],
+  );
+
+  const stopResize = useCallback(() => {
+    window.removeEventListener("mousemove", onResizeMove);
+    window.removeEventListener("mouseup", stopResize);
+    resizeRef.current = null;
+  }, [onResizeMove]);
+
+  const startResize = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      const listEl = filesListRef.current;
+      if (!listEl) return;
+
+      const listHeight = listEl.getBoundingClientRect().height;
+      const maxHeight = Math.max(minSectionHeight, listHeight - minSectionHeight);
+
+      resizeRef.current = {
+        startY: event.clientY,
+        startHeight: unstagedHeight,
+        maxHeight,
+      };
+
+      window.addEventListener("mousemove", onResizeMove);
+      window.addEventListener("mouseup", stopResize);
+      event.preventDefault();
+    },
+    [minSectionHeight, onResizeMove, stopResize, unstagedHeight],
+  );
+
+  const onCommitResizeMove = useCallback(
+    (event: MouseEvent) => {
+      const state = commitResizeRef.current;
+      if (!state) return;
+      const delta = state.startY - event.clientY;
+      const nextHeight = Math.max(minCommitHeight, Math.min(state.startHeight + delta, state.maxHeight));
+      setCommitHeight(nextHeight);
+    },
+    [minCommitHeight],
+  );
+
+  const stopCommitResize = useCallback(() => {
+    window.removeEventListener("mousemove", onCommitResizeMove);
+    window.removeEventListener("mouseup", stopCommitResize);
+    commitResizeRef.current = null;
+  }, [onCommitResizeMove]);
+
+  const startCommitResize = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      const listEl = filesListRef.current;
+      if (!listEl) return;
+
+      const listHeight = listEl.getBoundingClientRect().height;
+      const combinedHeight = listHeight + commitHeight;
+      const maxHeight = Math.max(minCommitHeight, combinedHeight - minFilesHeight);
+
+      commitResizeRef.current = {
+        startY: event.clientY,
+        startHeight: commitHeight,
+        maxHeight,
+      };
+
+      window.addEventListener("mousemove", onCommitResizeMove);
+      window.addEventListener("mouseup", stopCommitResize);
+      event.preventDefault();
+    },
+    [commitHeight, minCommitHeight, minFilesHeight, onCommitResizeMove, stopCommitResize],
+  );
+
+  useEffect(() => stopResize, [stopResize]);
+  useEffect(() => stopCommitResize, [stopCommitResize]);
+
+  const unstagedSectionStyle = unstagedOpen
+    ? {
+        flex: stagedOpen ? `0 0 ${unstagedHeight}px` : "1 1 auto",
+        minHeight: `${minSectionHeight}px`,
+      }
+    : undefined;
+
+  const stagedSectionStyle = stagedOpen
+    ? {
+        flex: "1 1 auto",
+        minHeight: `${minSectionHeight}px`,
+      }
+    : undefined;
+
+  const sectionBodyStyle = {
+    flex: "1 1 auto",
+    minHeight: 0,
+    maxHeight: "none",
+    resize: "none" as const,
+  };
 
   return (
     <>
       <div className="rpanel-head">
-        <button
-          className="trash"
-          title="Discard all changes"
-          onClick={() => toast("Discard not implemented in this mock")}
-        >
-          <IconTrash size={14} />
-        </button>
+        {totalCount > 0 && (
+          <button
+            className="trash"
+            title="Discard all changes"
+            onClick={() => toast("Discard not implemented in this mock")}
+          >
+            <IconTrash size={14} />
+          </button>
+        )}
         <span className="title">
           {totalCount} file change{totalCount !== 1 ? "s" : ""} on
-          <span className="branch-chip" style={{ marginLeft: 6 }}>
+          <span className="branch-chip branch-chip-offset">
             {currentBranch}
           </span>
         </span>
       </div>
 
-      <div className="files-toolbar">
-        <button className="sort" title="Sort">
-          <IconSort size={14} />
-        </button>
-        <div className="seg">
-          <button
-            className={pathView === "path" ? "active" : ""}
-            onClick={() => setPathView("path")}
+        <div className="files-list local-files-list" ref={filesListRef}>
+          <PanelSection
+            title="Unstaged Files"
+            count={unstagedFiles.length}
+            open={unstagedOpen}
+            onToggle={() => setUnstagedOpen((v) => !v)}
+            style={unstagedSectionStyle}
+            bodyStyle={sectionBodyStyle}
+            action={
+              unstagedFiles.length > 0 ? (
+                <button
+                  className="stage-all primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStageAll();
+                  }}
+                  title="Stage all changes"
+                >
+                  Stage All Changes
+                </button>
+              ) : undefined
+            }
+            empty={<div className="empty-row">No unstaged files</div>}
           >
-            <IconPath size={12} /> Path
-          </button>
-          <button
-            className={pathView === "tree" ? "active" : ""}
-            onClick={() => setPathView("tree")}
-          >
-            <IconTree size={12} /> Tree
-          </button>
-        </div>
-      </div>
-
-      <div className="files-list" style={{ flex: 1, minHeight: 0 }}>
-        <div className={"subsection" + (unstagedOpen ? "" : " collapsed")}>
-          <div className="head" onClick={() => setUnstagedOpen((v) => !v)}>
-            <span className="chev">›</span>
-            <span>Unstaged Files</span>
-            <span className="count">({unstagedFiles.length})</span>
-            {unstagedFiles.length > 0 && (
-              <button
-                className="stage-all primary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onStageAll();
-                }}
-                title="Stage all changes"
-              >
-                Stage All Changes
-              </button>
-            )}
-          </div>
-          {unstagedOpen &&
-            unstagedFiles.map((f) => (
+            {unstagedFiles.map((f) => (
               <ChangedFileRow
                 key={f.id}
                 file={f}
@@ -191,31 +295,40 @@ function LocalChangesPanel({
                 onAction={onStageFile}
               />
             ))}
-          {unstagedOpen && unstagedFiles.length === 0 && (
-            <div className="empty-row">No unstaged files</div>
-          )}
-        </div>
+          </PanelSection>
 
-        <div className={"subsection" + (stagedOpen ? "" : " collapsed")}>
-          <div className="head" onClick={() => setStagedOpen((v) => !v)}>
-            <span className="chev">›</span>
-            <span>Staged Files</span>
-            <span className="count">({stagedFiles.length})</span>
-            {stagedFiles.length > 0 && (
-              <button
-                className="stage-all"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUnstageAll();
-                }}
-                title="Unstage all"
-              >
-                Unstage All
-              </button>
-            )}
-          </div>
-          {stagedOpen &&
-            stagedFiles.map((f) => (
+          {unstagedOpen && stagedOpen && (
+            <div
+              className="section-splitter"
+              title="Drag to resize"
+              onMouseDown={startResize}
+            />
+          )}
+
+          <PanelSection
+            title="Staged Files"
+            count={stagedFiles.length}
+            open={stagedOpen}
+            onToggle={() => setStagedOpen((v) => !v)}
+            style={stagedSectionStyle}
+            bodyStyle={sectionBodyStyle}
+            action={
+              stagedFiles.length > 0 ? (
+                <button
+                  className="stage-all"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUnstageAll();
+                  }}
+                  title="Unstage all"
+                >
+                  Unstage All
+                </button>
+              ) : undefined
+            }
+            empty={<div className="empty-row">No staged files</div>}
+          >
+            {stagedFiles.map((f) => (
               <ChangedFileRow
                 key={f.id}
                 file={f}
@@ -225,13 +338,15 @@ function LocalChangesPanel({
                 onAction={onUnstageFile}
               />
             ))}
-          {stagedOpen && stagedFiles.length === 0 && (
-            <div className="empty-row">No staged files</div>
-          )}
+          </PanelSection>
         </div>
-      </div>
 
-      <CommitForm stagedCount={stagedFiles.length} onCommit={onCommit} />
+      <CommitForm
+        stagedCount={stagedFiles.length}
+        onCommit={onCommit}
+        height={commitHeight}
+        onStartResize={startCommitResize}
+      />
     </>
   );
 }
@@ -239,9 +354,11 @@ function LocalChangesPanel({
 interface CommitFormProps {
   stagedCount: number;
   onCommit: (summary: string, description: string) => void;
+  height: number;
+  onStartResize: (event: ReactMouseEvent<HTMLDivElement>) => void;
 }
 
-function CommitForm({ stagedCount, onCommit }: CommitFormProps) {
+function CommitForm({ stagedCount, onCommit, height, onStartResize }: CommitFormProps) {
   const [summary, setSummary] = useState("");
   const [desc, setDesc] = useState("");
   const maxLen = 72;
@@ -256,8 +373,8 @@ function CommitForm({ stagedCount, onCommit }: CommitFormProps) {
   };
 
   return (
-    <div className="commit-form-wrap">
-      <div className="splitter" title="Drag to resize" />
+    <div className="commit-form-wrap" style={{ height: `${height}px`, flex: `0 0 ${height}px` }}>
+      <div className="splitter" title="Drag to resize" onMouseDown={onStartResize} />
 
       <div className="ftabs">
         <button className="ftab active" title="Commit staged changes">
@@ -266,13 +383,13 @@ function CommitForm({ stagedCount, onCommit }: CommitFormProps) {
           </span>
           Commit
         </button>
-        <button className="ftab" title="Push changes to remote" style={{ marginLeft: "auto" }}>
+        <button className="ftab ftab-right" title="Push changes to remote">
           <span className="ico">
             <IconCloudArrowUp size={13} />
           </span>
         </button>
         <button className="ftab" title="Stash">
-          <span className="ico" style={{ fontSize: 11 }}>⊙</span>
+          <span className="ico ico-small">⊙</span>
         </button>
       </div>
 
@@ -284,7 +401,7 @@ function CommitForm({ stagedCount, onCommit }: CommitFormProps) {
           maxLength={maxLen + 20}
           onChange={(e) => setSummary(e.target.value)}
         />
-        <span className="counter" style={{ color: remaining < 10 ? "var(--del)" : undefined }}>
+        <span className={"counter" + (remaining < 10 ? " danger" : "")}>
           {remaining}
         </span>
       </div>
@@ -314,21 +431,25 @@ function CommitForm({ stagedCount, onCommit }: CommitFormProps) {
 interface CommitDetailsPanelProps {
   commit: Commit | null;
   commitFiles: ChangedFile[];
+  totalLocalChanges: number;
+  currentBranch: string;
   selectedFileId?: string;
   onSelectFile: (file: ChangedFile) => void;
+  onViewLocalChanges: () => void;
 }
 
 function CommitDetailsPanel({
   commit,
   commitFiles,
+  totalLocalChanges,
+  currentBranch,
   selectedFileId,
   onSelectFile,
+  onViewLocalChanges,
 }: CommitDetailsPanelProps) {
-  const [pathView, setPathView] = useState<"path" | "tree">("path");
-
   if (!commit) {
     return (
-      <div style={{ padding: 20, color: "var(--text-3)", fontSize: 12 }}>
+      <div className="commit-empty-state">
         Select a commit to see details.
       </div>
     );
@@ -342,22 +463,24 @@ function CommitDetailsPanel({
   return (
     <>
       <div className="rpanel-head">
-        <span
-          className="title"
-          style={{ flexDirection: "column", gap: 0, alignItems: "flex-start" }}
-        >
-          <span
-            style={{
-              fontSize: 11,
-              color: "var(--text-3)",
-              marginBottom: 2,
-              fontFamily: "var(--font-mono)",
-            }}
-          >
-            commit: <span style={{ color: "var(--text-2)" }}>{commit.hash}</span>
+        <span className="title title-stacked">
+          <span className="commit-meta-line">
+            commit: <span className="commit-hash-muted">{commit.hash}</span>
           </span>
         </span>
       </div>
+
+      {totalLocalChanges > 0 && (
+        <div className="rpanel-head rpanel-head-local-link">
+          <span className="title">
+            {totalLocalChanges} file change{totalLocalChanges !== 1 ? "s" : ""} on
+            <span className="branch-chip branch-chip-offset">{currentBranch}</span>
+          </span>
+          <button className="view-changes" onClick={onViewLocalChanges}>
+            View Changes
+          </button>
+        </div>
+      )}
 
       <div className="commit-details">
         <p className="msg">{commit.title}</p>
@@ -397,43 +520,11 @@ function CommitDetailsPanel({
           </span>
         )}
         {totalAdd + totalDel > 0 && (
-          <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--text-3)" }}>
-            <span style={{ color: "var(--add)" }}>+{totalAdd}</span>{" "}
-            <span style={{ color: "var(--del)" }}>-{totalDel}</span>
+          <span className="change-totals">
+            <span className="plus">+{totalAdd}</span>{" "}
+            <span className="minus">-{totalDel}</span>
           </span>
         )}
-      </div>
-
-      <div className="files-toolbar">
-        <button className="sort" title="Sort">
-          <IconSort size={14} />
-        </button>
-        <button
-          title="View all files"
-          style={{
-            fontSize: 11,
-            color: "var(--text-3)",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-          }}
-        >
-          <IconEye size={12} /> View all files
-        </button>
-        <div className="seg">
-          <button
-            className={pathView === "path" ? "active" : ""}
-            onClick={() => setPathView("path")}
-          >
-            <IconPath size={12} /> Path
-          </button>
-          <button
-            className={pathView === "tree" ? "active" : ""}
-            onClick={() => setPathView("tree")}
-          >
-            <IconTree size={12} /> Tree
-          </button>
-        </div>
       </div>
 
       <div className="files-list">

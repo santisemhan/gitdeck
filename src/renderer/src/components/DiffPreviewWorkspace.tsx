@@ -1,9 +1,9 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ChangedFile, DiffMode, SelectedFileSource } from "../data/types";
 import { splitPath } from "../data/mock";
 import { gitClient } from "../services/gitClient";
-import { parseUnifiedDiff, tokenize, type DiffHunk } from "../utils/diff";
+import { buildSplitRows, parseUnifiedDiff, tokenize, type DiffHunk, type SplitDiffRow } from "../utils/diff";
 import { FileStatusIcon } from "./FileStatusIcon";
 import {
   IconArrowDown,
@@ -15,6 +15,7 @@ import {
   IconWrap,
   IconX,
 } from "./icons";
+import { SegmentedControl } from "./SegmentedControl";
 
 interface DiffPreviewWorkspaceProps {
   repoPath: string;
@@ -47,9 +48,12 @@ export function DiffPreviewWorkspace({
   const [viewMode, setViewMode] = useState<"diff" | "file">("diff");
   const [fileText, setFileText] = useState<string | null>(null);
   const [fileLoading, setFileLoading] = useState(false);
+  const [splitRows, setSplitRows] = useState<SplitDiffRow[]>([]);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; canCopy: boolean } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setSplitRows([]);
     setLoading(true);
     setError(null);
     (async () => {
@@ -79,6 +83,31 @@ export function DiffPreviewWorkspace({
       cancelled = true;
     };
   }, [repoPath, file.path, source, commitHash]);
+
+  useEffect(() => {
+    if (viewMode !== "diff" || diffMode !== "split") {
+      setSplitRows([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const src = source ?? "unstaged";
+        const result = await gitClient.splitContent(repoPath, file.path, src === "commit" ? "commit" : src, commitHash);
+        if (cancelled) return;
+        if (result.isBinary) {
+          setSplitRows([]);
+          return;
+        }
+        setSplitRows(buildSplitRows(result.oldText, result.newText));
+      } catch {
+        if (!cancelled) setSplitRows([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewMode, diffMode, repoPath, file.path, source, commitHash]);
 
   useEffect(() => {
     if (viewMode !== "file") return;
@@ -113,8 +142,52 @@ export function DiffPreviewWorkspace({
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
+  useEffect(() => {
+    if (!contextMenu) return;
+
+    const closeMenu = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(".ctx-menu")) return;
+      setContextMenu(null);
+    };
+    window.addEventListener("mousedown", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+    window.addEventListener("resize", closeMenu);
+
+    return () => {
+      window.removeEventListener("mousedown", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+      window.removeEventListener("resize", closeMenu);
+    };
+  }, [contextMenu]);
+
+  const handleContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement | null;
+    if (!target?.closest(".diff-body")) return;
+
+    event.preventDefault();
+    const selectedText = window.getSelection()?.toString() ?? "";
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      canCopy: selectedText.trim().length > 0,
+    });
+  }, []);
+
+  const handleCopySelection = useCallback(async () => {
+    const selectedText = window.getSelection()?.toString() ?? "";
+    if (!selectedText.trim()) return;
+
+    try {
+      await navigator.clipboard.writeText(selectedText);
+      setContextMenu(null);
+    } catch {
+      toast.error("Could not copy selected text");
+    }
+  }, []);
+
   return (
-    <div className="diff-workspace">
+    <div className="diff-workspace" onContextMenu={handleContextMenu}>
       <DiffHeader
         file={file}
         source={source}
@@ -141,9 +214,27 @@ export function DiffPreviewWorkspace({
       ) : error ? (
         <DiffPlaceholder>{error}</DiffPlaceholder>
       ) : diffMode === "split" ? (
-        <SplitDiffViewer hunks={hunks} />
+        <SplitDiffViewer hunks={hunks} fullRows={splitRows} />
       ) : (
         <InlineDiffViewer hunks={hunks} />
+      )}
+      {contextMenu && (
+        <div
+          className="ctx-menu"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          role="menu"
+          aria-label="Context menu"
+        >
+          <button
+            type="button"
+            className="ctx-menu-item"
+            onClick={handleCopySelection}
+            disabled={!contextMenu.canCopy}
+            role="menuitem"
+          >
+            Copy
+          </button>
+        </div>
       )}
     </div>
   );
@@ -151,14 +242,7 @@ export function DiffPreviewWorkspace({
 
 function DiffPlaceholder({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        padding: 24,
-        color: "var(--text-3)",
-        fontSize: 12,
-        fontFamily: "var(--font-mono)",
-      }}
-    >
+    <div className="diff-placeholder">
       {children}
     </div>
   );
@@ -222,41 +306,26 @@ function DiffToolbar({ source, diffMode, viewMode, onChangeDiffMode, onChangeVie
       )}
 
       {viewMode === "diff" && (
-        <div className="seg" style={{ margin: "0 auto" }}>
-          <button
-            className={diffMode === "split" ? "active" : ""}
-            onClick={() => onChangeDiffMode("split")}
-            title="Split view"
-          >
-            <IconSplit size={12} /> Split View
-          </button>
-          <button
-            className={diffMode === "inline" ? "active" : ""}
-            onClick={() => onChangeDiffMode("inline")}
-            title="Inline view"
-          >
-            <IconInline size={12} /> Inline View
-          </button>
-        </div>
+        <SegmentedControl
+          className="seg seg-centered"
+          value={diffMode}
+          onChange={onChangeDiffMode}
+          options={[
+            { value: "split", label: "Split View", icon: <IconSplit size={12} /> },
+            { value: "inline", label: "Inline View", icon: <IconInline size={12} /> },
+          ]}
+        />
       )}
 
       <div className="right-group" style={viewMode === "file" ? { marginLeft: "auto" } : {}}>
-        <div className="seg">
-          <button
-            className={viewMode === "file" ? "active" : ""}
-            title="File view"
-            onClick={() => onChangeViewMode("file")}
-          >
-            <IconEye size={12} /> File View
-          </button>
-          <button
-            className={viewMode === "diff" ? "active" : ""}
-            title="Diff view"
-            onClick={() => onChangeViewMode("diff")}
-          >
-            <IconSplit size={12} /> Diff View
-          </button>
-        </div>
+        <SegmentedControl
+          value={viewMode}
+          onChange={onChangeViewMode}
+          options={[
+            { value: "file", label: "File View", icon: <IconEye size={12} /> },
+            { value: "diff", label: "Diff View", icon: <IconSplit size={12} /> },
+          ]}
+        />
         {viewMode === "diff" && (
           <>
             <div className="vert-divider" />
@@ -311,65 +380,149 @@ function buildPairs(hunk: DiffHunk): DiffPair[] {
   return pairs;
 }
 
-function SplitDiffViewer({ hunks }: { hunks: DiffHunk[] }) {
+function SplitDiffViewer({ hunks, fullRows }: { hunks: DiffHunk[]; fullRows: SplitDiffRow[] }) {
+  const leftRef = useRef<HTMLDivElement | null>(null);
+  const rightRef = useRef<HTMLDivElement | null>(null);
+  const syncingRef = useRef<"left" | "right" | null>(null);
+
+  if (fullRows.length > 0) {
+    return <SplitFullFileViewer rows={fullRows} />;
+  }
+
   if (!hunks || hunks.length === 0) {
     return <DiffPlaceholder>No differences found.</DiffPlaceholder>;
   }
 
+  const syncScroll = (source: "left" | "right") => {
+    const left = leftRef.current;
+    const right = rightRef.current;
+    if (!left || !right) return;
+
+    if (syncingRef.current && syncingRef.current !== source) {
+      syncingRef.current = null;
+      return;
+    }
+
+    syncingRef.current = source;
+    if (source === "left") {
+      right.scrollLeft = left.scrollLeft;
+      right.scrollTop = left.scrollTop;
+    } else {
+      left.scrollLeft = right.scrollLeft;
+      left.scrollTop = right.scrollTop;
+    }
+  };
+
   return (
     <div className="diff-body split-diff">
-      <div className="side">
-        {hunks.map((h, hi) => (
-          <Fragment key={hi}>
-            <div className="dline hunk">
-              <div className="ln">···</div>
-              <div className="code">{h.header}</div>
-            </div>
-            {buildPairs(h).map((p, pi) =>
-              p.left ? (
-                <div key={pi} className={`dline ${p.left.kind === "ctx" ? "ctx" : "del"}`}>
-                  <div className="ln">{p.left.oldLn ?? ""}</div>
-                  <div
-                    className="code"
-                    dangerouslySetInnerHTML={{ __html: tokenize(p.left.text) }}
-                  />
-                </div>
-              ) : (
-                <div key={pi} className="dline empty">
-                  <div className="ln"> </div>
-                  <div className="code"> </div>
-                </div>
-              )
-            )}
-          </Fragment>
-        ))}
+      <div ref={leftRef} className="side" onScroll={() => syncScroll("left")}>
+        <div className="side-content">
+          {hunks.map((h, hi) => (
+            <Fragment key={hi}>
+              <div className="dline hunk">
+                <div className="ln">···</div>
+                <div className="code">{h.header}</div>
+              </div>
+              {buildPairs(h).map((p, pi) =>
+                p.left ? (
+                  <div key={pi} className={`dline ${p.left.kind === "ctx" ? "ctx" : "del"}`}>
+                    <div className="ln">{p.left.oldLn ?? ""}</div>
+                    <div
+                      className="code"
+                      dangerouslySetInnerHTML={{ __html: tokenize(p.left.text) }}
+                    />
+                  </div>
+                ) : (
+                  <div key={pi} className="dline empty">
+                    <div className="ln"> </div>
+                    <div className="code"> </div>
+                  </div>
+                )
+              )}
+            </Fragment>
+          ))}
+        </div>
       </div>
 
-      <div className="side">
-        {hunks.map((h, hi) => (
-          <Fragment key={hi}>
-            <div className="dline hunk">
-              <div className="ln">···</div>
-              <div className="code">{h.header}</div>
+      <div ref={rightRef} className="side" onScroll={() => syncScroll("right")}>
+        <div className="side-content">
+          {hunks.map((h, hi) => (
+            <Fragment key={hi}>
+              <div className="dline hunk">
+                <div className="ln">···</div>
+                <div className="code">{h.header}</div>
+              </div>
+              {buildPairs(h).map((p, pi) =>
+                p.right ? (
+                  <div key={pi} className={`dline ${p.right.kind === "ctx" ? "ctx" : "add"}`}>
+                    <div className="ln">{p.right.newLn ?? ""}</div>
+                    <div
+                      className="code"
+                      dangerouslySetInnerHTML={{ __html: tokenize(p.right.text) }}
+                    />
+                  </div>
+                ) : (
+                  <div key={pi} className="dline empty">
+                    <div className="ln"> </div>
+                    <div className="code"> </div>
+                  </div>
+                )
+              )}
+            </Fragment>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SplitFullFileViewer({ rows }: { rows: SplitDiffRow[] }) {
+  const leftRef = useRef<HTMLDivElement | null>(null);
+  const rightRef = useRef<HTMLDivElement | null>(null);
+  const syncingRef = useRef<"left" | "right" | null>(null);
+
+  const syncScroll = (source: "left" | "right") => {
+    const left = leftRef.current;
+    const right = rightRef.current;
+    if (!left || !right) return;
+
+    if (syncingRef.current && syncingRef.current !== source) {
+      syncingRef.current = null;
+      return;
+    }
+
+    syncingRef.current = source;
+    if (source === "left") {
+      right.scrollLeft = left.scrollLeft;
+      right.scrollTop = left.scrollTop;
+    } else {
+      left.scrollLeft = right.scrollLeft;
+      left.scrollTop = right.scrollTop;
+    }
+  };
+
+  return (
+    <div className="diff-body split-diff">
+      <div ref={leftRef} className="side" onScroll={() => syncScroll("left")}>
+        <div className="side-content">
+          {rows.map((row, i) => (
+            <div key={i} className={`dline ${row.leftKind}`}>
+              <div className="ln">{row.leftLn ?? ""}</div>
+              <div className="code" dangerouslySetInnerHTML={{ __html: tokenize(row.leftText) }} />
             </div>
-            {buildPairs(h).map((p, pi) =>
-              p.right ? (
-                <div key={pi} className={`dline ${p.right.kind === "ctx" ? "ctx" : "add"}`}>
-                  <div className="ln">{p.right.newLn ?? ""}</div>
-                  <div
-                    className="code"
-                    dangerouslySetInnerHTML={{ __html: tokenize(p.right.text) }}
-                  />
-                </div>
-              ) : (
-                <div key={pi} className="dline empty">
-                  <div className="ln"> </div>
-                  <div className="code"> </div>
-                </div>
-              )
-            )}
-          </Fragment>
-        ))}
+          ))}
+        </div>
+      </div>
+
+      <div ref={rightRef} className="side" onScroll={() => syncScroll("right")}>
+        <div className="side-content">
+          {rows.map((row, i) => (
+            <div key={i} className={`dline ${row.rightKind}`}>
+              <div className="ln">{row.rightLn ?? ""}</div>
+              <div className="code" dangerouslySetInnerHTML={{ __html: tokenize(row.rightText) }} />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -400,7 +553,7 @@ function InlineDiffViewer({ hunks }: { hunks: DiffHunk[] }) {
           <div className="dline hunk">
             <div className="ln">···</div>
             <div className="ln-r">···</div>
-            <div className="code" style={{ fontStyle: "italic", color: "var(--text-3)" }}>
+            <div className="code inline-hunk-header">
               {h.header}
             </div>
           </div>

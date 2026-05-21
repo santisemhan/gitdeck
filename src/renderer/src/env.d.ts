@@ -4,6 +4,7 @@ import type {
   RepoChangeEvent,
   GitBranch,
   GitDiff,
+  GitSplitContent,
   GitOperationResult,
   GitStatus,
   Repository,
@@ -26,6 +27,7 @@ declare global {
       getCommitDetails(repoPath: string, commitHash: string): Promise<CommitDetails>;
       getCommitFileDiff(repoPath: string, commitHash: string, filePath: string): Promise<GitDiff>;
       getFileContent(repoPath: string, filePath: string, source: string, commitHash?: string): Promise<{ text: string; isBinary: boolean }>;
+      getSplitContent(repoPath: string, filePath: string, source: string, commitHash?: string): Promise<GitSplitContent>;
       getBranches(repoPath: string): Promise<GitBranch[]>;
       checkoutBranch(repoPath: string, branch: string): Promise<GitOperationResult>;
       checkoutRemoteBranch(repoPath: string, remoteBranch: string): Promise<GitOperationResult>;

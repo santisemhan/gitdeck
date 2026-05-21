@@ -13,6 +13,7 @@ export const Channels = {
   getCommitDetails: "git:commitDetails",
   getCommitFileDiff: "git:commitFileDiff",
   getFileContent: "git:fileContent",
+  getSplitContent: "git:splitContent",
   getBranches: "git:branches",
   checkoutBranch: "git:checkoutBranch",
   checkoutRemoteBranch: "git:checkoutRemoteBranch",

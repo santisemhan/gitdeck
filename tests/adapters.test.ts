@@ -15,7 +15,7 @@ describe("parseRefs", () => {
     const parsed = parseRefs(refs);
     const branchNames = parsed.filter((r) => r.kind === "branch").map((r) => r.name);
 
-    expect(branchNames).toEqual(["origin/main"]);
+    expect(branchNames).toEqual(["main"]);
   });
 
   it("hides origin HEAD without arrow", () => {
@@ -23,6 +23,14 @@ describe("parseRefs", () => {
     const parsed = parseRefs(refs);
     const branchNames = parsed.filter((r) => r.kind === "branch").map((r) => r.name);
 
-    expect(branchNames).toEqual(["origin/main"]);
+    expect(branchNames).toEqual(["main"]);
+  });
+
+  it("normalizes origin branch labels to avoid duplicates", () => {
+    const refs = "main, origin/main, tag: v1.0.0";
+    const parsed = parseRefs(refs);
+    const branchNames = parsed.filter((r) => r.kind === "branch").map((r) => r.name);
+
+    expect(branchNames).toEqual(["main"]);
   });
 });

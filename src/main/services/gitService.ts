@@ -7,6 +7,7 @@ import {
   GitDiff,
   GitFileChange,
   GitOperationResult,
+  GitSplitContent,
   GitStatus
 } from "../../shared/types";
 import { parseHistory, historyFormat } from "../parsers/historyParser";
@@ -17,6 +18,14 @@ const BIG_DIFF_LIMIT = 500_000;
 
 function fail(result: { code: number; stdout: string; stderr: string }, fallback: string): GitOperationResult {
   return { ok: false, code: result.code, stdout: result.stdout, stderr: result.stderr, message: result.stderr || fallback };
+}
+
+function ok(result: CommandResult): GitOperationResult {
+  return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
+}
+
+function withTruncation(text: string, limit: number, message: string): string {
+  return text.length > limit ? `${text.slice(0, limit)}\n\n[${message}]` : text;
 }
 
 async function runGit(repoPath: string, args: string[]): Promise<CommandResult> {
@@ -40,6 +49,87 @@ async function runGit(repoPath: string, args: string[]): Promise<CommandResult> 
 }
 
 export class GitService {
+  private listFilesRecursively(absDir: string, relDir: string): string[] {
+    const entries = fs.readdirSync(absDir, { withFileTypes: true });
+    const files: string[] = [];
+    for (const entry of entries) {
+      const absChild = path.join(absDir, entry.name);
+      const relChild = relDir ? `${relDir}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        files.push(...this.listFilesRecursively(absChild, relChild));
+      } else {
+        files.push(relChild);
+      }
+    }
+    return files;
+  }
+
+  private normalizeUntrackedChanges(repoPath: string, changes: GitFileChange[]): GitFileChange[] {
+    const out: GitFileChange[] = [];
+    const seen = new Set<string>();
+
+    for (const change of changes) {
+      const normalizedPath = change.path.replace(/\\/g, "/");
+
+      if (!change.untracked) {
+        const key = `${change.staged ? "S" : ""}${change.unstaged ? "U" : ""}:${normalizedPath}`;
+        if (!seen.has(key)) {
+          out.push({ ...change, path: normalizedPath });
+          seen.add(key);
+        }
+        continue;
+      }
+
+      const trimmedPath = normalizedPath.replace(/\/+$/, "");
+      const absPath = path.join(repoPath, trimmedPath);
+      const isDirectory = fs.existsSync(absPath) && fs.statSync(absPath).isDirectory();
+
+      if (!isDirectory) {
+        const key = `U:${normalizedPath}`;
+        if (!seen.has(key)) {
+          out.push({ ...change, path: normalizedPath });
+          seen.add(key);
+        }
+        continue;
+      }
+
+      const files = this.listFilesRecursively(absPath, trimmedPath).sort((a, b) => a.localeCompare(b));
+      if (files.length === 0) {
+        const key = `U:${normalizedPath}`;
+        if (!seen.has(key)) {
+          out.push({ ...change, path: normalizedPath });
+          seen.add(key);
+        }
+        continue;
+      }
+
+      for (const filePath of files) {
+        const key = `U:${filePath}`;
+        if (seen.has(key)) continue;
+        out.push({
+          ...change,
+          path: filePath,
+          staged: false,
+          unstaged: true,
+          untracked: true,
+          conflicted: false,
+          kind: "untracked"
+        });
+        seen.add(key);
+      }
+    }
+
+    return out;
+  }
+
+  private readUnstagedFile(repoPath: string, filePath: string): { text: string; isBinary: boolean } {
+    const fullPath = path.join(repoPath, filePath);
+    const buf = fs.readFileSync(fullPath);
+    const isBinary = buf.slice(0, 8000).includes(0);
+    if (isBinary) return { text: "", isBinary: true };
+    return { text: buf.toString("utf-8"), isBinary: false };
+  }
+
   async validateRepository(repoPath: string): Promise<GitOperationResult> {
     const stat = fs.existsSync(repoPath) ? fs.statSync(repoPath) : null;
     if (!stat || !stat.isDirectory()) {
@@ -72,9 +162,15 @@ export class GitService {
 
   async getStatus(repoPath: string): Promise<GitStatus> {
     const state = await this.detectRepoState(repoPath);
-    const result = await runGit(repoPath, ["status", "--porcelain=v2", "--branch"]);
+    const result = await runGit(repoPath, ["status", "--porcelain=v2", "--branch", "-uall"]);
     if (result.code !== 0) throw new Error(result.stderr || "Unable to get status");
-    return parseStatusPorcelainV2(repoPath, result.stdout, state);
+    const status = parseStatusPorcelainV2(repoPath, result.stdout, state);
+    const changes = this.normalizeUntrackedChanges(repoPath, status.changes);
+    return {
+      ...status,
+      clean: changes.length === 0,
+      changes
+    };
   }
 
   async getDiff(repoPath: string, filePath: string, staged: boolean): Promise<GitDiff> {
@@ -89,32 +185,32 @@ export class GitService {
       staged,
       isBinary,
       tooLarge,
-      text: tooLarge ? text.slice(0, BIG_DIFF_LIMIT) + "\n\n[Diff truncated due to size]" : text
+      text: withTruncation(text, BIG_DIFF_LIMIT, "Diff truncated due to size")
     };
   }
 
   async stageFile(repoPath: string, filePath: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["add", "--", filePath]);
     if (result.code !== 0) return fail(result, "Failed to stage file");
-    return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
+    return ok(result);
   }
 
   async unstageFile(repoPath: string, filePath: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["restore", "--staged", "--", filePath]);
     if (result.code !== 0) return fail(result, "Failed to unstage file");
-    return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
+    return ok(result);
   }
 
   async stageAll(repoPath: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["add", "--all"]);
     if (result.code !== 0) return fail(result, "Failed to stage all");
-    return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
+    return ok(result);
   }
 
   async unstageAll(repoPath: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["restore", "--staged", "."]);
     if (result.code !== 0) return fail(result, "Failed to unstage all");
-    return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
+    return ok(result);
   }
 
   async commit(repoPath: string, message: string): Promise<GitOperationResult> {
@@ -123,7 +219,7 @@ export class GitService {
     }
     const result = await runGit(repoPath, ["commit", "-m", message]);
     if (result.code !== 0) return fail(result, "Commit failed");
-    return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
+    return ok(result);
   }
 
   async getHistory(repoPath: string): Promise<ReturnType<typeof parseHistory>> {
@@ -143,7 +239,7 @@ export class GitService {
       staged: false,
       isBinary,
       tooLarge,
-      text: tooLarge ? text.slice(0, BIG_DIFF_LIMIT) + "\n\n[Diff truncated due to size]" : text
+      text: withTruncation(text, BIG_DIFF_LIMIT, "Diff truncated due to size")
     };
   }
 
@@ -151,11 +247,9 @@ export class GitService {
     const BIG_FILE_LIMIT = 500_000;
     let text: string;
     if (source === "unstaged") {
-      const fullPath = path.join(repoPath, filePath);
-      const buf = fs.readFileSync(fullPath);
-      const isBinary = buf.slice(0, 8000).includes(0);
-      if (isBinary) return { text: "", isBinary: true };
-      text = buf.toString("utf-8");
+      const file = this.readUnstagedFile(repoPath, filePath);
+      if (file.isBinary) return { text: "", isBinary: true };
+      text = file.text;
     } else if (source === "staged") {
       const result = await runGit(repoPath, ["show", `:${filePath}`]);
       if (result.code !== 0) throw new Error(result.stderr || "Unable to read staged file");
@@ -167,8 +261,52 @@ export class GitService {
       text = result.stdout;
     }
     const isBinary = false;
-    if (text.length > BIG_FILE_LIMIT) text = text.slice(0, BIG_FILE_LIMIT) + "\n\n[File truncated due to size]";
+    text = withTruncation(text, BIG_FILE_LIMIT, "File truncated due to size");
     return { text, isBinary };
+  }
+
+  async getSplitContent(repoPath: string, filePath: string, source: "unstaged" | "staged" | "commit", commitHash?: string): Promise<GitSplitContent> {
+    const BIG_FILE_LIMIT = 500_000;
+    const worktreeExists = fs.existsSync(path.join(repoPath, filePath));
+    const readAt = async (where: "worktree" | "index" | "commit"): Promise<{ text: string; isBinary: boolean }> => {
+      if (where === "worktree") {
+        if (!worktreeExists) return { text: "", isBinary: false };
+        return this.readUnstagedFile(repoPath, filePath);
+      }
+      if (where === "index") {
+        const result = await runGit(repoPath, ["show", `:${filePath}`]);
+        if (result.code !== 0) return { text: "", isBinary: false };
+        return { text: result.stdout, isBinary: false };
+      }
+      if (!commitHash) return { text: "", isBinary: false };
+      const result = await runGit(repoPath, ["show", `${commitHash}:${filePath}`]);
+      if (result.code !== 0) return { text: "", isBinary: false };
+      return { text: result.stdout, isBinary: false };
+    };
+
+    const sourceText = await readAt(source === "unstaged" ? "worktree" : source === "staged" ? "index" : "commit");
+    if (sourceText.isBinary) return { oldText: "", newText: "", isBinary: true };
+
+    let target: { text: string; isBinary: boolean };
+    if (source === "unstaged") {
+      target = await readAt("index");
+    } else {
+      const parent = source === "commit"
+        ? await runGit(repoPath, ["show", "--format=%P", "-s", commitHash || ""])
+        : await runGit(repoPath, ["rev-parse", "HEAD"]);
+      const parentHash = (parent.stdout.trim().split(/\s+/)[0] || "").trim();
+      if (!parentHash) target = { text: "", isBinary: false };
+      else {
+        const ref = `${parentHash}:${filePath}`;
+        const result = await runGit(repoPath, ["show", ref]);
+        target = result.code === 0 ? { text: result.stdout, isBinary: false } : { text: "", isBinary: false };
+      }
+    }
+    if (target.isBinary) return { oldText: "", newText: "", isBinary: true };
+
+    const oldText = withTruncation(target.text, BIG_FILE_LIMIT, "File truncated due to size");
+    const newText = withTruncation(sourceText.text, BIG_FILE_LIMIT, "File truncated due to size");
+    return { oldText, newText, isBinary: false };
   }
 
   async getCommitDetails(repoPath: string, commitHash: string): Promise<CommitDetails> {
@@ -233,7 +371,7 @@ export class GitService {
   async checkoutBranch(repoPath: string, branchName: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["checkout", branchName]);
     if (result.code !== 0) return fail(result, "Checkout failed");
-    return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
+    return ok(result);
   }
 
   async checkoutRemoteBranch(repoPath: string, remoteBranch: string): Promise<GitOperationResult> {
@@ -252,7 +390,7 @@ export class GitService {
 
     const trackResult = await runGit(repoPath, ["checkout", "--track", "-b", localName, trimmed]);
     if (trackResult.code !== 0) return fail(trackResult, "Checkout remote branch failed");
-    return { ok: true, code: 0, stdout: trackResult.stdout, stderr: trackResult.stderr };
+    return ok(trackResult);
   }
 
   async createBranch(repoPath: string, branchName: string, startPoint?: string): Promise<GitOperationResult> {
@@ -260,37 +398,37 @@ export class GitService {
     if (startPoint) args.push(startPoint);
     const result = await runGit(repoPath, args);
     if (result.code !== 0) return fail(result, "Create branch failed");
-    return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
+    return ok(result);
   }
 
   async pull(repoPath: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["pull"]);
     if (result.code !== 0) return fail(result, this.mapNetworkError(result.stderr));
-    return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
+    return ok(result);
   }
 
   async push(repoPath: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["push"]);
     if (result.code !== 0) return fail(result, this.mapNetworkError(result.stderr));
-    return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
+    return ok(result);
   }
 
   async cherryPick(repoPath: string, commitHash: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["cherry-pick", commitHash]);
     if (result.code !== 0) return fail(result, "Cherry-pick failed");
-    return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
+    return ok(result);
   }
 
   async continueCherryPick(repoPath: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["cherry-pick", "--continue"]);
     if (result.code !== 0) return fail(result, "Cherry-pick continue failed");
-    return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
+    return ok(result);
   }
 
   async abortCherryPick(repoPath: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["cherry-pick", "--abort"]);
     if (result.code !== 0) return fail(result, "Cherry-pick abort failed");
-    return { ok: true, code: 0, stdout: result.stdout, stderr: result.stderr };
+    return ok(result);
   }
 
   private mapNetworkError(stderr: string): string {

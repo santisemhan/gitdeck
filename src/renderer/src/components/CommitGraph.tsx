@@ -82,7 +82,7 @@ export function CommitGraph({
           <span>Tag</span>
         </div>
         <div>Graph</div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="graph-header-row">
           <span>Commit message</span>
           <span className="right">
             <button className="gear" title="Graph settings">
@@ -93,21 +93,11 @@ export function CommitGraph({
       </div>
 
       <div className="graph-scroll">
-        <div style={{ position: "relative" }}>
+        <div className="graph-stack">
           <svg
             width={svgW}
             height={totalH}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 200,
-              width: svgW,
-              height: totalH,
-              pointerEvents: "none",
-              zIndex: 2,
-              overflow: "visible",
-              shapeRendering: "geometricPrecision",
-            }}
+            className="graph-svg-overlay"
           >
             {edges.map((e, i) => {
               const fromX = LANE_X(e.fromLane);
@@ -244,7 +234,7 @@ function CommitRow({ commit, selected, onSelect, onCheckoutRef }: CommitRowProps
         ))}
       </div>
 
-      <div className="commit-row-cell graph" style={{ background: "transparent" }} />
+      <div className="commit-row-cell graph" />
 
       <div className="commit-row-cell msg">
         {c.isWip ? (
@@ -278,10 +268,7 @@ function RefPill({
 }) {
   if (refData.kind === "more") {
     return (
-      <span
-        className="branch-pill"
-        style={{ background: "var(--bg-3)", color: "var(--text-3)", fontSize: 10 }}
-      >
+      <span className="branch-pill branch-pill-more">
         +{refData.count}
       </span>
     );
@@ -305,9 +292,9 @@ function RefPill({
       }}
     >
       <span className="pname">{refData.name}</span>
-      <IconMonitor size={10} style={{ color: "var(--text-3)", flexShrink: 0 }} />
+      <IconMonitor size={10} className="icon-muted-shrink" />
       {first && refData.current && (
-        <IconCaretDown size={9} style={{ color: "var(--text-3)" }} />
+        <IconCaretDown size={9} className="text-muted" />
       )}
     </span>
   );

@@ -87,13 +87,13 @@ export function BranchSidebar({
     </div>
   );
 
-  const renderBranchRow = (b: LocalBranch, opts: { short?: string; indent?: number } = {}) => {
+  const renderBranchRow = (b: LocalBranch, opts: { short?: string; indent?: 22 | 40 } = {}) => {
     const isCurrent = b.id === currentBranchId;
+    const indentClass = opts.indent === 40 ? "indent-40" : opts.indent === 22 ? "indent-22" : "";
     return (
       <div
         key={b.id}
-        className={"branch-row" + (isCurrent ? " current" : "")}
-        style={opts.indent != null ? { paddingLeft: opts.indent } : undefined}
+        className={"branch-row" + (isCurrent ? " current" : "") + (indentClass ? ` ${indentClass}` : "")}
         onClick={() => onSelectBranch(b)}
         onDoubleClick={() => onCheckoutBranch(b)}
         title={b.name}
@@ -122,7 +122,7 @@ export function BranchSidebar({
 
   return (
     <aside className="sidebar">
-      <div className="filter" style={{ marginTop: 8 }}>
+      <div className="filter sidebar-filter-top">
         <input
           placeholder="Filter (Ctrl + Alt + f)"
           value={filter}
@@ -175,9 +175,8 @@ export function BranchSidebar({
                   return (
                     <Fragment key={b.id}>
                       <div
-                        className={"branch-folder" + (open ? "" : " collapsed")}
+                        className={"branch-folder" + (open ? "" : " collapsed") + " indent-22"}
                         onClick={() => toggleFolder("r-" + b.id)}
-                        style={{ paddingLeft: 22 }}
                       >
                         <IconCaretDown size={11} className="chevron" />
                         <IconFolder size={13} className="icon" />
@@ -187,8 +186,7 @@ export function BranchSidebar({
                         b.children?.map((c) => (
                           <div
                             key={c.id}
-                            className="branch-row"
-                            style={{ paddingLeft: 40 }}
+                            className="branch-row indent-40"
                             onClick={() => onSelectBranch(c)}
                             onDoubleClick={() => onCheckoutBranch(c)}
                           >
@@ -202,8 +200,7 @@ export function BranchSidebar({
                 return (
                   <div
                     key={b.id}
-                    className="branch-row"
-                    style={{ paddingLeft: 22 }}
+                    className="branch-row indent-22"
                     onClick={() => onSelectBranch(b)}
                     onDoubleClick={() => onCheckoutBranch(b)}
                   >

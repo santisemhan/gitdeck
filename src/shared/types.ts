@@ -58,6 +58,12 @@ export interface GitDiff {
   text: string;
 }
 
+export interface GitSplitContent {
+  oldText: string;
+  newText: string;
+  isBinary: boolean;
+}
+
 export interface GitBranch {
   name: string;
   current: boolean;
