@@ -1,0 +1,181 @@
+/* ========== Branch sidebar ========== */
+.sidebar {
+  background: var(--bg-1);
+  border-right: 1px solid var(--border-1);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sidebar .head {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  gap: 6px;
+}
+.sidebar .head .seg {
+  display: inline-flex;
+  background: var(--bg-2);
+  border-radius: 4px;
+  padding: 2px;
+  gap: 2px;
+  margin-left: auto;
+}
+.sidebar .seg button {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sidebar .seg button.active {
+  background: var(--bg-3);
+  color: var(--text-1);
+}
+.sidebar .back {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  color: var(--text-3);
+  border-radius: 3px;
+}
+.sidebar .back:hover { background: var(--bg-2); color: var(--text-1); }
+
+.sidebar .viewing {
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.sidebar .filter {
+  margin: 2px 10px 8px;
+}
+.sidebar .filter input {
+  width: 100%;
+  background: var(--bg-input);
+  font-size: 12px;
+  padding: 4px 8px 4px 26px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 256 256' fill='%23767b88'><circle cx='112' cy='112' r='80' fill='none' stroke='%23767b88' stroke-width='16'/><line x1='168.57' y1='168.57' x2='224' y2='224' stroke='%23767b88' stroke-width='16' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: 8px center;
+}
+
+.sidebar .scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+.sidebar .section {
+  margin-top: 2px;
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  color: var(--text-2);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  position: relative;
+}
+.section-header:hover { color: var(--text-1); }
+.section-header .chevron {
+  transition: transform 120ms;
+  color: var(--text-3);
+}
+.section-header.collapsed .chevron { transform: rotate(-90deg); }
+.section-header .icon { color: var(--text-2); }
+.section-header .title { font-weight: 600; }
+.section-header .count {
+  margin-left: auto;
+  background: var(--bg-2);
+  color: var(--text-2);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.section-header .count.zero { color: var(--text-disabled); background: transparent; }
+
+.branch-group {
+  padding-left: 8px;
+}
+.branch-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 22px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  height: var(--row-h-sm);
+  position: relative;
+  border-radius: 0;
+  cursor: pointer;
+}
+.branch-row:hover { background: var(--bg-2); color: var(--text-1); }
+.branch-row.selected { background: var(--blue-soft); color: var(--text-1); }
+.branch-row.current {
+  background: var(--accent-soft);
+  color: var(--text-1);
+}
+.branch-row.current::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 3px; bottom: 3px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.branch-row.current .check { color: var(--accent); }
+.branch-row .icon { color: var(--text-3); flex-shrink: 0; }
+.branch-row .icon svg,
+.branch-row .check svg,
+.branch-folder .icon svg,
+.section-header .icon svg {
+  width: 14px;
+  height: 14px;
+}
+.branch-row .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.branch-row .ahead-behind {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+.branch-row .ahead-behind.ahead { color: var(--accent); }
+.branch-row .ahead-behind.behind { color: var(--mod); }
+
+.branch-folder {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px 3px 14px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  cursor: pointer;
+  height: var(--row-h-sm);
+}
+.branch-folder:hover { color: var(--text-1); background: var(--bg-2); }
+.branch-folder .chevron { color: var(--text-3); transition: transform 120ms; }
+.branch-folder.collapsed .chevron { transform: rotate(-90deg); }
+.branch-folder .icon { color: var(--text-3); }
+.branch-folder .name { flex: 1; }
+
+.empty-row {
+  padding: 4px 10px 4px 30px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-style: italic;
+}

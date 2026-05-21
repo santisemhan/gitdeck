@@ -1,0 +1,26 @@
+/* Floating tooltip */
+.tip {
+  position: absolute;
+  background: var(--bg-3);
+  border: 1px solid var(--border-3);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-1);
+  pointer-events: none;
+  z-index: 50;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+  white-space: nowrap;
+}
+
+/* Keyboard hint */
+.kbd {
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-bottom-width: 2px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+}

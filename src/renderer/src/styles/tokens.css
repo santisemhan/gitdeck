@@ -1,0 +1,116 @@
+/* GitDeck — original design system for a desktop Git client */
+:root {
+  /* Surfaces — cool graphite with subtle blue undertone */
+  --bg-0: #17181d;            /* app frame background */
+  --bg-1: #1e1f26;            /* main panels */
+  --bg-2: #25272f;            /* panel headers / hover bg */
+  --bg-3: #2c2e37;            /* elevated surfaces / selected bg */
+  --bg-4: #353844;            /* hover on elevated */
+  --bg-input: #1a1b21;        /* inputs */
+
+  /* Borders */
+  --border-1: #2a2c34;        /* subtle */
+  --border-2: #353844;        /* default */
+  --border-3: #434756;        /* prominent */
+
+  /* Text */
+  --text-1: #e7e9ee;          /* primary */
+  --text-2: #a4a8b3;          /* secondary */
+  --text-3: #767b88;          /* tertiary / labels */
+  --text-disabled: #5a5e6a;
+
+  /* Accents */
+  --accent: #4cc3a4;          /* teal — current branch / brand */
+  --accent-deep: #2f9b80;
+  --accent-soft: rgba(76, 195, 164, 0.14);
+
+  --blue: #6ea2ff;            /* selection / links */
+  --blue-soft: rgba(110, 162, 255, 0.16);
+  --blue-strong: rgba(110, 162, 255, 0.28);
+  --select-bg: rgba(110, 162, 255, 0.34);
+  --select-bg-strong: rgba(110, 162, 255, 0.42);
+  --select-fg: #f5f8ff;
+
+  --add: #6dc26a;             /* additions */
+  --add-soft: rgba(109, 194, 106, 0.16);
+  --add-line: rgba(109, 194, 106, 0.10);
+
+  --del: #e26565;             /* deletions */
+  --del-soft: rgba(226, 101, 101, 0.16);
+  --del-line: rgba(226, 101, 101, 0.10);
+
+  --mod: #e5a155;             /* modifications */
+  --mod-soft: rgba(229, 161, 85, 0.18);
+
+  --ai: #b58cf5;              /* AI features only */
+  --ai-soft: rgba(181, 140, 245, 0.18);
+
+  /* Type */
+  --font-ui: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "SF Mono", Consolas, ui-monospace, monospace;
+
+  /* Sizing */
+  --row-h: 26px;
+  --row-h-sm: 22px;
+  --sidebar-w: 240px;
+  --rpanel-w: 360px;
+  --titlebar-h: 36px;
+  --tabbar-h: 36px;
+  --toolbar-h: 56px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+#root { height: 100%; }
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+button:focus-visible {
+  outline: 1px solid var(--blue);
+  outline-offset: 1px;
+}
+
+input, textarea {
+  font-family: inherit;
+  color: inherit;
+  background: var(--bg-input);
+  border: 1px solid var(--border-2);
+  border-radius: 4px;
+  padding: 6px 8px;
+  outline: none;
+}
+input:focus, textarea:focus {
+  border-color: var(--blue);
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--bg-3);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--bg-4); background-clip: padding-box; border: 2px solid transparent; }

@@ -1,0 +1,352 @@
+/* ========== App shell ========== */
+.app {
+  display: grid;
+  grid-template-rows: var(--tabbar-h) var(--toolbar-h) 1fr 22px;
+  height: 100%;
+  background: var(--bg-0);
+}
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  height: var(--titlebar-h);
+  padding: 0 8px 0 12px;
+  background: var(--bg-0);
+  border-bottom: 1px solid var(--border-1);
+  gap: 14px;
+  -webkit-app-region: drag;
+}
+.titlebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 12.5px;
+  letter-spacing: 0.2px;
+}
+.titlebar .brand-mark {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+.titlebar .menus {
+  display: flex;
+  gap: 2px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.titlebar .menus button {
+  padding: 4px 8px;
+  border-radius: 3px;
+}
+.titlebar .menus button:hover { background: var(--bg-2); color: var(--text-1); }
+.titlebar .spacer { flex: 1; }
+.titlebar .win-ctl {
+  width: 30px; height: 26px;
+  display: grid; place-items: center;
+  color: var(--text-2);
+  border-radius: 3px;
+}
+.titlebar .win-ctl:hover { background: var(--bg-2); color: var(--text-1); }
+.titlebar .win-ctl.close:hover { background: #c4413a; color: #fff; }
+
+/* Tab bar */
+.tabbar {
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-0);
+  border-bottom: 1px solid var(--border-1);
+  padding-left: 8px;
+  gap: 2px;
+}
+.tabbar .icon-btn {
+  width: 32px;
+  display: grid;
+  place-items: center;
+  color: var(--text-2);
+  border-radius: 4px;
+  margin: 4px 2px;
+}
+.tabbar .icon-btn:hover { background: var(--bg-2); color: var(--text-1); }
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 0 12px;
+  height: 100%;
+  font-size: 12.5px;
+  color: var(--text-2);
+  background: var(--bg-0);
+  border-right: 1px solid var(--border-1);
+  position: relative;
+  cursor: pointer;
+}
+.tab.active {
+  color: var(--text-1);
+  background: var(--bg-1);
+}
+.tab.active::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent);
+}
+.tab .close {
+  width: 16px; height: 16px;
+  display: grid; place-items: center;
+  border-radius: 3px;
+  color: var(--text-3);
+  margin-left: 4px;
+}
+.tab .close:hover { background: var(--bg-3); color: var(--text-1); }
+.tab .branch-icon { color: var(--text-3); }
+
+.tabbar .new-tab {
+  width: 28px;
+  display: grid; place-items: center;
+  color: var(--text-2);
+  border-radius: 4px;
+  margin: 4px 2px;
+}
+.tabbar .new-tab:hover { background: var(--bg-2); color: var(--text-1); }
+.tabbar .right { margin-left: auto; display: flex; align-items: center; padding-right: 8px; gap: 4px; }
+.tabbar .right .icon-btn { width: 28px; height: 28px; margin: 4px 0; position: relative; }
+.tabbar .right .dot {
+  position: absolute;
+  top: 5px; right: 5px;
+  width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  border: 1px solid var(--bg-0);
+}
+.tabbar .profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 4px;
+  color: var(--text-1);
+  border-radius: 4px;
+  font-size: 12px;
+}
+.tabbar .profile:hover { background: var(--bg-2); }
+.tabbar .avatar {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4cc3a4, #6ea2ff);
+  display: grid; place-items: center;
+  color: #0f1014;
+  font-weight: 700;
+  font-size: 10px;
+}
+
+/* Toolbar (repo + branch + actions) */
+.toolbar {
+  display: flex;
+  align-items: stretch;
+  height: var(--toolbar-h);
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border-1);
+  padding: 0 14px;
+  gap: 18px;
+}
+.toolbar .field {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.toolbar .field .label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 2px;
+}
+.toolbar .field .value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text-1);
+  font-size: 14px;
+}
+.toolbar .field.branch-field {
+  position: relative;
+}
+.toolbar .field .branch-value-btn {
+  text-align: left;
+  padding: 2px 6px;
+  margin-left: -6px;
+  border-radius: 4px;
+}
+.toolbar .field .branch-value-btn:hover {
+  background: var(--bg-2);
+}
+.toolbar .field .branch-menu {
+  position: absolute;
+  top: calc(100% - 2px);
+  left: 0;
+  width: 280px;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.45);
+  z-index: 30;
+  padding: 8px;
+}
+.toolbar .field .branch-menu input {
+  width: 100%;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.toolbar .field .branch-menu-list {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.toolbar .field .branch-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 26px;
+  border-radius: 4px;
+  padding: 0 8px;
+  color: var(--text-2);
+}
+.toolbar .field .branch-menu-item svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.toolbar .field .branch-menu-item:hover {
+  background: var(--bg-3);
+  color: var(--text-1);
+}
+.toolbar .field .branch-menu-item.current {
+  background: var(--accent-soft);
+  color: var(--text-1);
+}
+.toolbar .field .branch-menu-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.toolbar .field .branch-menu-empty {
+  color: var(--text-3);
+  font-size: 11.5px;
+  padding: 6px 8px;
+}
+.toolbar .field .nav-arrows {
+  display: inline-flex;
+  gap: 0;
+  margin-left: 6px;
+}
+.toolbar .field .nav-arrows button {
+  width: 18px; height: 18px;
+  display: grid; place-items: center;
+  color: var(--text-3);
+  border-radius: 3px;
+}
+.toolbar .field .nav-arrows button:hover { background: var(--bg-2); color: var(--text-1); }
+
+.toolbar .divider {
+  width: 1px;
+  background: var(--border-1);
+  margin: 10px 0;
+}
+.toolbar .actions {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  margin-left: auto;
+}
+.toolbar-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 10px;
+  min-width: 52px;
+  color: var(--text-2);
+  border-radius: 4px;
+  position: relative;
+}
+.toolbar-action:hover:not(:disabled) { background: var(--bg-2); color: var(--text-1); }
+.toolbar-action:disabled { color: var(--text-disabled); cursor: default; }
+.toolbar-action .lbl {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.toolbar-action .ico {
+  position: relative;
+}
+.toolbar-action .ico .badge {
+  position: absolute;
+  bottom: -2px;
+  right: -4px;
+  background: var(--accent);
+  color: #0f1014;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 6px;
+  min-width: 12px;
+  padding: 0 3px;
+  line-height: 12px;
+}
+.toolbar-action.split-caret {
+  padding-right: 4px;
+}
+.toolbar-action .caret {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  color: var(--text-3);
+}
+
+/* Main pane area */
+.workarea {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr var(--rpanel-w);
+  background: var(--bg-1);
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Status bar */
+.statusbar {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  background: var(--bg-0);
+  border-top: 1px solid var(--border-1);
+  padding: 0 10px;
+  font-size: 11px;
+  color: var(--text-3);
+  gap: 12px;
+}
+.statusbar .item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.statusbar .item.accent { color: var(--accent); }
+.statusbar .right { margin-left: auto; display: inline-flex; gap: 12px; }
+.statusbar .pill {
+  background: var(--mod-soft);
+  color: var(--mod);
+  font-weight: 600;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}

@@ -1,0 +1,180 @@
+/* ========== Center / Graph ========== */
+.center {
+  background: var(--bg-1);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.graph-header {
+  display: grid;
+  grid-template-columns: 200px 60px minmax(0, 1fr);
+  align-items: center;
+  padding: 8px 14px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--border-1);
+  height: 34px;
+}
+.graph-header .sep { color: var(--text-disabled); margin: 0 4px; }
+.graph-header .right {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.graph-header .gear {
+  color: var(--text-3);
+  display: grid; place-items: center;
+  width: 20px; height: 20px;
+  border-radius: 3px;
+}
+.graph-header .gear:hover { background: var(--bg-2); color: var(--text-1); }
+
+.graph-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  min-width: 0;
+}
+.graph-list {
+  display: grid;
+  grid-template-columns: 200px 60px minmax(0, 1fr);
+  align-items: stretch;
+  font-size: 13px;
+  width: 100%;
+}
+.graph-list .commit-row {
+  display: contents;
+}
+.commit-row-cell {
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  height: 30px;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.commit-row.selected .commit-row-cell {
+  background: var(--blue-soft);
+}
+.commit-row:hover:not(.selected) .commit-row-cell {
+  background: var(--bg-2);
+}
+
+.commit-row-cell.labels {
+  padding-left: 14px;
+  gap: 4px;
+  overflow: hidden;
+  flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 200px;
+}
+.commit-row-cell.graph {
+  padding: 0;
+  justify-content: center;
+  border-right: 1px solid var(--border-1);
+}
+.commit-row-cell.msg {
+  gap: 8px;
+  padding-right: 14px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.branch-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 4px;
+  font-size: 11px;
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
+  border-radius: 3px;
+  color: var(--text-1);
+  white-space: nowrap;
+  max-width: 140px;
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
+}
+.branch-pill.checkoutable {
+  cursor: pointer;
+}
+.branch-pill.current {
+  background: var(--accent-soft);
+  border-color: var(--accent-deep);
+  color: var(--text-1);
+}
+.branch-pill.current .check { color: var(--accent); }
+.branch-pill .pname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.branch-pill .more {
+  background: var(--bg-2);
+  color: var(--text-3);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.commit-msg {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  line-height: 30px;
+}
+.commit-msg .title { color: var(--text-1); }
+.commit-msg .desc { color: var(--text-3); font-size: 12px; margin-left: 8px; }
+
+.wip-row .commit-row-cell.msg {
+  font-style: italic;
+}
+.wip-row .wip-input {
+  background: var(--bg-2);
+  border: 1px dashed var(--border-3);
+  border-radius: 4px;
+  padding: 2px 8px;
+  color: var(--text-2);
+  font-style: italic;
+  font-size: 12px;
+}
+.wip-row .add-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--add);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* SVG graph */
+.graph-cell {
+  width: 60px;
+  height: 30px;
+  flex-shrink: 0;
+}
+
+/* Placeholder splash */
+.empty-graph {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--text-3);
+  font-size: 13px;
+}
