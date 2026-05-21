@@ -125,13 +125,13 @@ export function BranchSidebar({
         {b.ahead > 0 && (
           <span className="ahead-behind ahead">
             {b.ahead}
-            <IconArrowDown size={10} />
+            <IconArrowUp size={10} />
           </span>
         )}
         {b.behind > 0 && (
           <span className="ahead-behind behind">
             {b.behind}
-            <IconArrowUp size={10} />
+            <IconArrowDown size={10} />
           </span>
         )}
       </div>

@@ -97,6 +97,12 @@ function RepoView({
   const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
   const [branchQuery, setBranchQuery] = useState("");
   const [showDiscardAllBanner, setShowDiscardAllBanner] = useState(false);
+  const [branchNameInput, setBranchNameInput] = useState("");
+  const [branchStartPoint, setBranchStartPoint] = useState<string | null>(null);
+  const [showCreateBranchBanner, setShowCreateBranchBanner] = useState(false);
+  const [renameBranchOldName, setRenameBranchOldName] = useState<string | null>(null);
+  const [renameBranchInput, setRenameBranchInput] = useState("");
+  const [showRenameBranchBanner, setShowRenameBranchBanner] = useState(false);
   const branchMenuRef = useRef<HTMLDivElement | null>(null);
 
   const { unstaged, staged } = useMemo(
@@ -289,6 +295,20 @@ function RepoView({
     }
   }, [staged.length, unstaged.length]);
 
+  useEffect(() => {
+    if (!showCreateBranchBanner && !showRenameBranchBanner) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowCreateBranchBanner(false);
+        setShowRenameBranchBanner(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [showCreateBranchBanner, showRenameBranchBanner]);
+
   const handleCommit = useCallback(
     async (summary: string, description: string) => {
       const message = description ? `${summary}\n\n${description}` : summary;
@@ -390,16 +410,56 @@ function RepoView({
   }, [branchMenuItems, branchQuery, filteredBranchMenuItems, handleBranchMenuSelect]);
 
   const handleCreateBranch = useCallback(async () => {
-    const name = window.prompt("New branch name");
-    if (!name || !name.trim()) return;
-    await data.createBranch(name.trim());
-  }, [data]);
+    setBranchStartPoint(null);
+    setBranchNameInput("");
+    setShowCreateBranchBanner(true);
+  }, []);
 
   const handleCreateBranchFrom = useCallback(async (fromRef: string) => {
-    const name = window.prompt(`New branch name (from "${fromRef}")`);
-    if (!name?.trim()) return;
-    await data.createBranch(name.trim(), fromRef);
-  }, [data]);
+    setBranchStartPoint(fromRef);
+    setBranchNameInput("");
+    setShowCreateBranchBanner(true);
+  }, []);
+
+  const handleSubmitCreateBranch = useCallback(async () => {
+    const name = branchNameInput.trim();
+    if (!name) {
+      toast.error("Branch name is required");
+      return;
+    }
+
+    await data.createBranch(name, branchStartPoint ?? undefined);
+    setShowCreateBranchBanner(false);
+    setBranchNameInput("");
+    setBranchStartPoint(null);
+  }, [branchNameInput, branchStartPoint, data]);
+
+  const handleRequestRenameBranch = useCallback((name: string) => {
+    setRenameBranchOldName(name);
+    setRenameBranchInput(name);
+    setShowRenameBranchBanner(true);
+  }, []);
+
+  const handleSubmitRenameBranch = useCallback(async () => {
+    const oldName = renameBranchOldName;
+    const newName = renameBranchInput.trim();
+
+    if (!oldName) return;
+    if (!newName) {
+      toast.error("Branch name is required");
+      return;
+    }
+    if (newName === oldName) {
+      setShowRenameBranchBanner(false);
+      setRenameBranchOldName(null);
+      return;
+    }
+
+    await data.renameBranch(oldName, newName);
+    setShowRenameBranchBanner(false);
+    setRenameBranchOldName(null);
+    setRenameBranchInput("");
+  }, [data, renameBranchInput, renameBranchOldName]);
 
   const handleDeleteBranch = useCallback(async (refName: string) => {
     await data.deleteBranch(refName);
@@ -458,6 +518,82 @@ function RepoView({
           </div>
         )}
 
+        {showCreateBranchBanner && (
+          <form
+            className="create-branch-banner"
+            role="dialog"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleSubmitCreateBranch();
+            }}
+          >
+            <span className="create-branch-banner-text">
+              {branchStartPoint ? `Create branch from ${branchStartPoint}` : "Create branch from current HEAD"}
+            </span>
+            <input
+              className="create-branch-input"
+              value={branchNameInput}
+              onChange={(event) => setBranchNameInput(event.target.value)}
+              placeholder="feature/my-branch"
+              autoFocus
+            />
+            <div className="create-branch-actions">
+              <button className="create-branch-btn primary" type="submit">
+                Create
+              </button>
+              <button
+                className="create-branch-btn"
+                type="button"
+                onClick={() => {
+                  setShowCreateBranchBanner(false);
+                  setBranchNameInput("");
+                  setBranchStartPoint(null);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        {showRenameBranchBanner && (
+          <form
+            className="create-branch-banner"
+            role="dialog"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleSubmitRenameBranch();
+            }}
+          >
+            <span className="create-branch-banner-text">
+              {renameBranchOldName ? `Rename branch ${renameBranchOldName}` : "Rename branch"}
+            </span>
+            <input
+              className="create-branch-input"
+              value={renameBranchInput}
+              onChange={(event) => setRenameBranchInput(event.target.value)}
+              placeholder="feature/my-branch"
+              autoFocus
+            />
+            <div className="create-branch-actions">
+              <button className="create-branch-btn primary" type="submit">
+                Rename
+              </button>
+              <button
+                className="create-branch-btn"
+                type="button"
+                onClick={() => {
+                  setShowRenameBranchBanner(false);
+                  setRenameBranchOldName(null);
+                  setRenameBranchInput("");
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
         <RepoToolbar
           repoName={repoName}
           currentBranch={currentBranch}
@@ -498,7 +634,7 @@ function RepoView({
             onCheckoutRef={(refName) => void handleCheckoutRef(refName)}
             onCreateBranchFrom={(refName) => void handleCreateBranchFrom(refName)}
             onDeleteBranch={(refName) => void handleDeleteBranch(refName)}
-            onRenameBranch={(oldName, newName) => void handleRenameBranch(oldName, newName)}
+            onRequestRenameBranch={handleRequestRenameBranch}
           />
           {mainView === "filePreview" && selectedFile && (
             <DiffPreviewWorkspace

@@ -126,6 +126,9 @@
   white-space: pre-wrap;
   word-wrap: break-word;
   margin: 0;
+  max-height: 140px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 .commit-details code {
   font-family: var(--font-mono);
