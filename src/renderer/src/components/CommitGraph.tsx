@@ -121,25 +121,31 @@ export function CommitGraph({
               }
 
               const TR = 10;
-              let d: string;
+              const R = Math.min(6, dy / 2);
+              const bendOffset = Math.min(TR, dy / 2);
+              const curveAtTop = e.fromLane < e.toLane;
 
-              if (dy <= 2 * TR) {
+              let d: string;
+              if (curveAtTop) {
+                // Exit bottom → go right → continue down to target
+                const bendY = fromY + bendOffset;
                 d =
                   `M ${fromX} ${fromY} ` +
-                  `C ${fromX} ${fromY + dy * 0.55}, ${toX} ${toY - dy * 0.55}, ${toX} ${toY}`;
+                  `L ${fromX} ${bendY - R} ` +
+                  `Q ${fromX} ${bendY}, ${fromX + R} ${bendY} ` +
+                  `L ${toX - R} ${bendY} ` +
+                  `Q ${toX} ${bendY}, ${toX} ${bendY + R} ` +
+                  `L ${toX} ${toY}`;
               } else {
-                const curveAtTop = e.fromLane < e.toLane;
-                if (curveAtTop) {
-                  d =
-                    `M ${fromX} ${fromY} ` +
-                    `C ${fromX} ${fromY + TR}, ${toX} ${fromY + TR}, ${toX} ${fromY + 2 * TR} ` +
-                    `L ${toX} ${toY}`;
-                } else {
-                  d =
-                    `M ${fromX} ${fromY} ` +
-                    `L ${fromX} ${toY - 2 * TR} ` +
-                    `C ${fromX} ${toY - TR}, ${toX} ${toY - TR}, ${toX} ${toY}`;
-                }
+                // Exit bottom → continue down → go left → enter target from top
+                const bendY = toY - bendOffset;
+                d =
+                  `M ${fromX} ${fromY} ` +
+                  `L ${fromX} ${bendY - R} ` +
+                  `Q ${fromX} ${bendY}, ${fromX - R} ${bendY} ` +
+                  `L ${toX + R} ${bendY} ` +
+                  `Q ${toX} ${bendY}, ${toX} ${bendY + R} ` +
+                  `L ${toX} ${toY}`;
               }
 
               return (
