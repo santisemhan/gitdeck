@@ -439,8 +439,31 @@ export class GitService {
 
   async push(repoPath: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["push"]);
-    if (result.code !== 0) return fail(result, this.mapNetworkError(result.stderr));
-    return ok(result);
+    if (result.code === 0) return ok(result);
+
+    const stderrLower = result.stderr.toLowerCase();
+    const noUpstream = stderrLower.includes("has no upstream") || stderrLower.includes("set-upstream");
+    if (!noUpstream) return fail(result, this.mapNetworkError(result.stderr));
+
+    const head = await runGit(repoPath, ["symbolic-ref", "--quiet", "--short", "HEAD"]);
+    const branchName = head.stdout.trim();
+    if (head.code !== 0 || !branchName) {
+      return fail(result, "Current branch has no upstream and could not be detected.");
+    }
+
+    const remotes = await runGit(repoPath, ["remote"]);
+    const remoteNames = remotes.stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const remoteName = remoteNames.includes("origin") ? "origin" : remoteNames[0];
+    if (!remoteName) {
+      return fail(result, "No remote configured for this repository.");
+    }
+
+    const publish = await runGit(repoPath, ["push", "--set-upstream", remoteName, branchName]);
+    if (publish.code !== 0) return fail(publish, this.mapNetworkError(publish.stderr));
+    return ok(publish);
   }
 
   async cherryPick(repoPath: string, commitHash: string): Promise<GitOperationResult> {

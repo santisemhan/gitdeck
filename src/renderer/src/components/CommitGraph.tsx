@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import type { Commit, CommitRef } from "../data/types";
 import {
   IconCaretDown,
@@ -21,9 +22,7 @@ const ROW_H = 30;
 const NODE_R = 7;
 const LANE_X = (lane: number) => 14 + lane * 18;
 
-type BranchCtxMenu =
-  | { phase: "menu"; x: number; y: number; refName: string; isCurrent: boolean }
-  | { phase: "rename"; x: number; y: number; refName: string; value: string };
+type BranchCtxMenu = { x: number; y: number; refName: string; isCurrent: boolean };
 
 interface CommitGraphProps {
   commits: Commit[];
@@ -33,7 +32,7 @@ interface CommitGraphProps {
   onCheckoutRef?: (refName: string) => void;
   onCreateBranchFrom?: (refName: string) => void;
   onDeleteBranch?: (refName: string) => void;
-  onRenameBranch?: (oldName: string, newName: string) => void;
+  onRequestRenameBranch?: (name: string) => void;
 }
 
 export function CommitGraph({
@@ -44,8 +43,54 @@ export function CommitGraph({
   onCheckoutRef,
   onCreateBranchFrom,
   onDeleteBranch,
-  onRenameBranch,
+  onRequestRenameBranch,
 }: CommitGraphProps) {
+  const [columns, setColumns] = useState({ labels: 200, graph: 60 });
+  const resizeRef = useRef<{ key: "labels" | "graph"; startX: number; startWidth: number } | null>(null);
+
+  const requiredGraphWidth = useMemo(() => {
+    const maxLane = commits.reduce((max, commit) => Math.max(max, commit.lane), 0);
+    return Math.max(60, LANE_X(maxLane) + NODE_R + 10);
+  }, [commits]);
+
+  const minWidths = useMemo(
+    () => ({ labels: 140, graph: 44 }),
+    []
+  );
+
+  const startResize = useCallback(
+    (key: "labels" | "graph") => (event: ReactMouseEvent) => {
+      event.preventDefault();
+      resizeRef.current = { key, startX: event.clientX, startWidth: columns[key] };
+    },
+    [columns]
+  );
+
+  useEffect(() => {
+    const onPointerMove = (event: MouseEvent) => {
+      const active = resizeRef.current;
+      if (!active) return;
+      const nextWidth = Math.max(minWidths[active.key], active.startWidth + (event.clientX - active.startX));
+      setColumns((prev) => ({ ...prev, [active.key]: nextWidth }));
+    };
+    const stopResize = () => {
+      resizeRef.current = null;
+    };
+    window.addEventListener("mousemove", onPointerMove);
+    window.addEventListener("mouseup", stopResize);
+    return () => {
+      window.removeEventListener("mousemove", onPointerMove);
+      window.removeEventListener("mouseup", stopResize);
+    };
+  }, [minWidths]);
+
+  useEffect(() => {
+    setColumns((prev) => {
+      if (prev.graph >= requiredGraphWidth) return prev;
+      return { ...prev, graph: requiredGraphWidth };
+    });
+  }, [requiredGraphWidth]);
+
   const byId = useMemo(() => {
     const m: Record<string, Commit & { rowIdx: number }> = {};
     commits.forEach((c, i) => {
@@ -63,17 +108,18 @@ export function CommitGraph({
       color: string;
     }[] = [];
     commits.forEach((c, i) => {
-      c.parents.forEach((pid) => {
+      c.parents.forEach((pid, parentIdx) => {
         const parent = byId[pid];
         if (!parent) return;
         const fromLane = c.lane;
         const toLane = parent.lane;
+        const isMergeParent = c.parents.length > 1 && parentIdx > 0;
         result.push({
           fromLane,
           toLane,
           fromRow: i,
           toRow: parent.rowIdx,
-          color: laneColor(toLane !== fromLane ? toLane : fromLane),
+          color: laneColor(isMergeParent ? toLane : fromLane),
         });
       });
     });
@@ -81,7 +127,6 @@ export function CommitGraph({
   }, [commits, byId]);
 
   const [branchCtxMenu, setBranchCtxMenu] = useState<BranchCtxMenu | null>(null);
-  const renameInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!branchCtxMenu) return;
@@ -97,48 +142,51 @@ export function CommitGraph({
     };
   }, [branchCtxMenu]);
 
-  useEffect(() => {
-    if (branchCtxMenu?.phase === "rename") {
-      renameInputRef.current?.select();
-    }
-  }, [branchCtxMenu?.phase]);
-
   const handleRefContextMenu = useCallback(
     (refName: string, isCurrent: boolean, x: number, y: number) => {
-      setBranchCtxMenu({ phase: "menu", x, y, refName, isCurrent });
+      setBranchCtxMenu({ x, y, refName, isCurrent });
     },
     []
   );
 
   const totalH = commits.length * ROW_H;
-  const svgW = 60;
+  const svgW = columns.graph;
+  const graphGrid = {
+    ["--branch-col" as string]: `${columns.labels}px`,
+    ["--graph-col" as string]: `${columns.graph}px`,
+  } as CSSProperties;
 
   return (
     <>
-      <div className="graph-header">
-        <div>
-          <span>Branch</span>
-          <span className="sep"> / </span>
-          <span>Tag</span>
+      <div className="graph-shell" style={graphGrid}>
+        <div className="graph-header">
+          <div className="graph-header-cell">
+            <span>Branch</span>
+            <span className="sep"> / </span>
+            <span>Tag</span>
+            <button className="col-resizer" onMouseDown={startResize("labels")} aria-label="Resize Branch/Tag column" />
+          </div>
+          <div className="graph-header-cell">
+            <span>Graph</span>
+            <button className="col-resizer" onMouseDown={startResize("graph")} aria-label="Resize Graph column" />
+          </div>
+          <div className="graph-header-row graph-header-cell">
+            <span>Commit message</span>
+            <span className="right">
+              <button className="gear" title="Graph settings">
+                <IconGear size={14} />
+              </button>
+            </span>
+          </div>
         </div>
-        <div>Graph</div>
-        <div className="graph-header-row">
-          <span>Commit message</span>
-          <span className="right">
-            <button className="gear" title="Graph settings">
-              <IconGear size={14} />
-            </button>
-          </span>
-        </div>
-      </div>
 
-      <div className="graph-scroll">
-        <div className="graph-stack">
-          <svg
-            width={svgW}
-            height={totalH}
-            className="graph-svg-overlay"
-          >
+        <div className="graph-scroll">
+          <div className="graph-stack">
+            <svg
+              width={svgW}
+              height={totalH}
+              className="graph-svg-overlay"
+            >
             {edges.map((e, i) => {
               const fromX = LANE_X(e.fromLane);
               const toX = LANE_X(e.toLane);
@@ -231,19 +279,20 @@ export function CommitGraph({
                 </g>
               );
             })}
-          </svg>
+            </svg>
 
-          <div className="graph-list" role="list">
-            {commits.map((c) => (
-              <CommitRow
-                key={c.id}
-                commit={c}
-                selected={c.id === selectedCommitId}
-                onSelect={() => (c.isWip ? onSelectWip() : onSelectCommit(c))}
-                onCheckoutRef={onCheckoutRef}
-                onRefContextMenu={handleRefContextMenu}
-              />
-            ))}
+            <div className="graph-list" role="list">
+              {commits.map((c) => (
+                <CommitRow
+                  key={c.id}
+                  commit={c}
+                  selected={c.id === selectedCommitId}
+                  onSelect={() => (c.isWip ? onSelectWip() : onSelectCommit(c))}
+                  onCheckoutRef={onCheckoutRef}
+                  onRefContextMenu={handleRefContextMenu}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -255,71 +304,43 @@ export function CommitGraph({
           onMouseDown={(e) => e.stopPropagation()}
           role="menu"
         >
-          {branchCtxMenu.phase === "menu" ? (
-            <>
-              <button
-                type="button"
-                className="ctx-menu-item"
-                role="menuitem"
-                onClick={() => {
-                  onCreateBranchFrom?.(branchCtxMenu.refName);
-                  setBranchCtxMenu(null);
-                }}
-              >
-                New branch from here
-              </button>
-              <button
-                type="button"
-                className="ctx-menu-item"
-                role="menuitem"
-                onClick={() =>
-                  setBranchCtxMenu({
-                    phase: "rename",
-                    x: branchCtxMenu.x,
-                    y: branchCtxMenu.y,
-                    refName: branchCtxMenu.refName,
-                    value: branchCtxMenu.refName,
-                  })
-                }
-              >
-                Rename
-              </button>
-              <button
-                type="button"
-                className="ctx-menu-item ctx-menu-item-danger"
-                role="menuitem"
-                disabled={branchCtxMenu.isCurrent}
-                title={branchCtxMenu.isCurrent ? "Cannot delete the current branch" : undefined}
-                onClick={() => {
-                  onDeleteBranch?.(branchCtxMenu.refName);
-                  setBranchCtxMenu(null);
-                }}
-              >
-                Delete branch
-              </button>
-            </>
-          ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const newName = branchCtxMenu.value.trim();
-                if (newName && newName !== branchCtxMenu.refName) {
-                  onRenameBranch?.(branchCtxMenu.refName, newName);
-                }
+          <>
+            <button
+              type="button"
+              className="ctx-menu-item"
+              role="menuitem"
+              onClick={() => {
+                onCreateBranchFrom?.(branchCtxMenu.refName);
                 setBranchCtxMenu(null);
               }}
             >
-              <input
-                ref={renameInputRef}
-                className="branch-rename-input"
-                value={branchCtxMenu.value}
-                autoFocus
-                onChange={(e) =>
-                  setBranchCtxMenu({ ...branchCtxMenu, value: e.target.value })
-                }
-              />
-            </form>
-          )}
+              New branch from here
+            </button>
+            <button
+              type="button"
+              className="ctx-menu-item"
+              role="menuitem"
+              onClick={() => {
+                onRequestRenameBranch?.(branchCtxMenu.refName);
+                setBranchCtxMenu(null);
+              }}
+            >
+              Rename
+            </button>
+            <button
+              type="button"
+              className="ctx-menu-item ctx-menu-item-danger"
+              role="menuitem"
+              disabled={branchCtxMenu.isCurrent}
+              title={branchCtxMenu.isCurrent ? "Cannot delete the current branch" : undefined}
+              onClick={() => {
+                onDeleteBranch?.(branchCtxMenu.refName);
+                setBranchCtxMenu(null);
+              }}
+            >
+              Delete branch
+            </button>
+          </>
         </div>
       )}
     </>

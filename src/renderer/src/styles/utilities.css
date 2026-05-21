@@ -41,8 +41,8 @@
 .graph-svg-overlay {
   position: absolute;
   top: 0;
-  left: 200px;
-  width: 60px;
+  left: var(--branch-col, 200px);
+  width: var(--graph-col, 60px);
   pointer-events: none;
   z-index: 2;
   overflow: visible;
