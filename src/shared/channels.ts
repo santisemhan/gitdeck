@@ -19,6 +19,8 @@ export const Channels = {
   checkoutBranch: "git:checkoutBranch",
   checkoutRemoteBranch: "git:checkoutRemoteBranch",
   createBranch: "git:createBranch",
+  deleteBranch: "git:deleteBranch",
+  renameBranch: "git:renameBranch",
   pull: "git:pull",
   push: "git:push",
   cherryPick: "git:cherryPick",

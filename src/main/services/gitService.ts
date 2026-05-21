@@ -419,6 +419,18 @@ export class GitService {
     return ok(result);
   }
 
+  async deleteBranch(repoPath: string, branchName: string): Promise<GitOperationResult> {
+    const result = await runGit(repoPath, ["branch", "-d", branchName]);
+    if (result.code !== 0) return fail(result, "Delete branch failed");
+    return ok(result);
+  }
+
+  async renameBranch(repoPath: string, oldName: string, newName: string): Promise<GitOperationResult> {
+    const result = await runGit(repoPath, ["branch", "-m", oldName, newName]);
+    if (result.code !== 0) return fail(result, "Rename branch failed");
+    return ok(result);
+  }
+
   async pull(repoPath: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["pull"]);
     if (result.code !== 0) return fail(result, this.mapNetworkError(result.stderr));

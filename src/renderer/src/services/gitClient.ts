@@ -94,6 +94,12 @@ export const gitClient = {
   createBranch(repoPath: string, name: string, startPoint?: string): Promise<GitOperationResult> {
     return api().createBranch(repoPath, name, startPoint);
   },
+  deleteBranch(repoPath: string, name: string): Promise<GitOperationResult> {
+    return api().deleteBranch(repoPath, name);
+  },
+  renameBranch(repoPath: string, oldName: string, newName: string): Promise<GitOperationResult> {
+    return api().renameBranch(repoPath, oldName, newName);
+  },
   watchRepository(repoPath: string): Promise<WatchOperationResult> {
     return api().watchRepository(repoPath);
   },

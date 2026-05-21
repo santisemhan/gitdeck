@@ -33,6 +33,8 @@ declare global {
       checkoutBranch(repoPath: string, branch: string): Promise<GitOperationResult>;
       checkoutRemoteBranch(repoPath: string, remoteBranch: string): Promise<GitOperationResult>;
       createBranch(repoPath: string, branch: string, startPoint?: string): Promise<GitOperationResult>;
+      deleteBranch(repoPath: string, name: string): Promise<GitOperationResult>;
+      renameBranch(repoPath: string, oldName: string, newName: string): Promise<GitOperationResult>;
       pull(repoPath: string): Promise<GitOperationResult>;
       push(repoPath: string): Promise<GitOperationResult>;
       cherryPick(repoPath: string, commitHash: string): Promise<GitOperationResult>;
