@@ -104,7 +104,6 @@ export function CommitGraph({
               const toX = LANE_X(e.toLane);
               const fromY = e.fromRow * ROW_H + ROW_H / 2;
               const toY = e.toRow * ROW_H + ROW_H / 2;
-              const dy = toY - fromY;
 
               if (fromX === toX) {
                 return (
@@ -120,21 +119,21 @@ export function CommitGraph({
                 );
               }
 
-              const R = Math.min(6, dy / 2);
+              // Both cases enter the parent from its RIGHT side.
+              //   - Branch-off (child right, parent left): J-curve. Descend
+              //     from child, sweep left at the parent's row, enter parent
+              //     from the right.
+              //   - Merge (child left, parent right): the line must approach
+              //     the parent from beyond its right edge. Use a cubic with
+              //     control 1 directly below the child (downward tangent)
+              //     and control 2 to the RIGHT of the parent (leftward
+              //     tangent), making the curve overshoot the parent and
+              //     return into its right side.
               const curveAtTop = e.fromLane < e.toLane;
-
-              // Exit child from bottom (straight down), enter parent from the side
+              const overshoot = 14;
               const d = curveAtTop
-                ? // Child left of parent → enter parent from left side
-                  `M ${fromX} ${fromY} ` +
-                  `L ${fromX} ${toY - R} ` +
-                  `Q ${fromX} ${toY}, ${fromX + R} ${toY} ` +
-                  `L ${toX} ${toY}`
-                : // Child right of parent → enter parent from right side
-                  `M ${fromX} ${fromY} ` +
-                  `L ${fromX} ${toY - R} ` +
-                  `Q ${fromX} ${toY}, ${fromX - R} ${toY} ` +
-                  `L ${toX} ${toY}`;
+                ? `M ${fromX} ${fromY} C ${fromX} ${toY}, ${toX + overshoot} ${toY}, ${toX} ${toY}`
+                : `M ${fromX} ${fromY} C ${fromX} ${toY}, ${fromX} ${toY}, ${toX} ${toY}`;
 
               return (
                 <path
