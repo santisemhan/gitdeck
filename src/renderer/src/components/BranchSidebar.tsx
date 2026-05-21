@@ -87,12 +87,13 @@ export function BranchSidebar({
     </div>
   );
 
-  const renderBranchRow = (b: LocalBranch, opts: { short?: string } = {}) => {
+  const renderBranchRow = (b: LocalBranch, opts: { short?: string; indent?: number } = {}) => {
     const isCurrent = b.id === currentBranchId;
     return (
       <div
         key={b.id}
         className={"branch-row" + (isCurrent ? " current" : "")}
+        style={opts.indent != null ? { paddingLeft: opts.indent } : undefined}
         onClick={() => onSelectBranch(b)}
         onDoubleClick={() => onCheckoutBranch(b)}
         title={b.name}
@@ -150,7 +151,10 @@ export function BranchSidebar({
                     </div>
                     {open &&
                       visible.map((b) =>
-                        renderBranchRow(b, { short: b.name.replace(folder + "/", "") })
+                        renderBranchRow(b, {
+                          short: b.name.replace(folder + "/", ""),
+                          indent: 40,
+                        })
                       )}
                   </Fragment>
                 );

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toaster, toast } from "sonner";
 import { BranchSidebar } from "./components/BranchSidebar";
 import { CommitGraph } from "./components/CommitGraph";
@@ -13,8 +13,6 @@ import {
   IconBell,
   IconBranch,
   IconCaretDown,
-  IconChevronLeft,
-  IconChevronRight,
   IconCloudArrowDown,
   IconCloudArrowUp,
   IconGear,
@@ -75,7 +73,7 @@ function ToolbarAction({ icon, label, badge, disabled, split, onClick }: Toolbar
 
 export function App() {
   const repoState = useActiveRepo();
-  const { repo } = repoState;
+  const { repo, repos, activePath } = repoState;
 
   return (
     <>
@@ -87,7 +85,17 @@ export function App() {
           onOpenRepo={repoState.openByPath}
         />
       ) : (
-        <RepoView key={repo.path} repoPath={repo.path} repoName={repo.name} onClose={repoState.close} />
+        <RepoView
+          key={repo.path}
+          repoPath={repo.path}
+          repoName={repo.name}
+          openRepos={repos}
+          activePath={activePath}
+          onOpenPicker={repoState.openPicker}
+          onSwitchRepo={repoState.setActiveByPath}
+          onCloseRepo={repoState.closeByPath}
+          onCloseAll={repoState.close}
+        />
       )}
     </>
   );
@@ -96,10 +104,24 @@ export function App() {
 interface RepoViewProps {
   repoPath: string;
   repoName: string;
-  onClose: () => void;
+  openRepos: Array<{ path: string; name: string }>;
+  activePath: string | null;
+  onOpenPicker: () => Promise<void>;
+  onSwitchRepo: (path: string) => void;
+  onCloseRepo: (path: string) => void;
+  onCloseAll: () => void;
 }
 
-function RepoView({ repoPath, repoName, onClose }: RepoViewProps) {
+function RepoView({
+  repoPath,
+  repoName,
+  openRepos,
+  activePath,
+  onOpenPicker,
+  onSwitchRepo,
+  onCloseRepo,
+  onCloseAll
+}: RepoViewProps) {
   const data = useRepoData(repoPath);
   const { status, history, branches } = data.data;
 
@@ -110,6 +132,9 @@ function RepoView({ repoPath, repoName, onClose }: RepoViewProps) {
   const [selectedFileSource, setSelectedFileSource] = useState<SelectedFileSource | null>(null);
   const [diffMode, setDiffMode] = useState<DiffMode>("split");
   const [commitFiles, setCommitFiles] = useState<ChangedFile[]>([]);
+  const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
+  const [branchQuery, setBranchQuery] = useState("");
+  const branchMenuRef = useRef<HTMLDivElement | null>(null);
 
   const { unstaged, staged } = useMemo(
     () => (status ? toChangedFiles(status) : { unstaged: [], staged: [] }),
@@ -117,6 +142,11 @@ function RepoView({ repoPath, repoName, onClose }: RepoViewProps) {
   );
 
   const currentBranch = status?.branch || "—";
+
+  const getRemoteBranchRef = useCallback((branch: RemoteBranch) => {
+    const remotePath = branch.folder ? `${branch.folder}/${branch.name}` : branch.name;
+    return `${branch.remote}/${remotePath}`;
+  }, []);
 
   const { local: localBranches, remote: remoteBranches, currentBranchId } = useMemo(
     () => toBranches(branches, status),
@@ -127,6 +157,23 @@ function RepoView({ repoPath, repoName, onClose }: RepoViewProps) {
     () => toCommits(history, { unstagedCount: unstaged.length, stagedCount: staged.length, currentBranch }),
     [history, unstaged.length, staged.length, currentBranch]
   );
+
+  const allBranches = useMemo(
+    () => [
+      ...localBranches,
+      ...remoteBranches.flatMap((branch) => (branch.isFolder ? branch.children ?? [] : [branch])),
+    ],
+    [localBranches, remoteBranches]
+  );
+
+  const filteredBranches = useMemo(() => {
+    const query = branchQuery.trim().toLowerCase();
+    if (!query) return allBranches;
+    return allBranches.filter((branch) => {
+      const fullName = branch.type === "remote" ? getRemoteBranchRef(branch) : branch.name;
+      return fullName.toLowerCase().includes(query);
+    });
+  }, [allBranches, branchQuery, getRemoteBranchRef]);
 
   useEffect(() => {
     if (!selectedCommit || selectedCommit.isWip) {
@@ -151,6 +198,17 @@ function RepoView({ repoPath, repoName, onClose }: RepoViewProps) {
       cancelled = true;
     };
   }, [selectedCommit, repoPath]);
+
+  useEffect(() => {
+    if (!isBranchMenuOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!branchMenuRef.current?.contains(event.target as Node)) {
+        setIsBranchMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", handlePointerDown);
+    return () => window.removeEventListener("mousedown", handlePointerDown);
+  }, [isBranchMenuOpen]);
 
   const handleSelectCommit = useCallback((commit: Commit) => {
     if (commit.isWip) {
@@ -253,14 +311,88 @@ function RepoView({ repoPath, repoName, onClose }: RepoViewProps) {
   const handleCheckoutBranch = useCallback(
     async (branch: LocalBranch | RemoteBranch) => {
       if (branch.type === "remote") {
-        const fullName = `${branch.remote}/${branch.name}`;
+        const fullName = getRemoteBranchRef(branch);
         await data.checkoutRemoteBranch(fullName);
       } else {
         await data.checkoutBranch(branch.name);
       }
     },
-    [data]
+    [data, getRemoteBranchRef]
   );
+
+  const handleCheckoutRef = useCallback(
+    async (refName: string) => {
+      if (!refName) return;
+
+      const exact = allBranches.find((branch) => {
+        const label = branch.type === "remote" ? getRemoteBranchRef(branch) : branch.name;
+        return label === refName;
+      });
+
+      if (exact) {
+        await handleCheckoutBranch(exact);
+        return;
+      }
+
+      const localByName = localBranches.find((branch) => branch.name === refName);
+      if (localByName) {
+        await handleCheckoutBranch(localByName);
+        return;
+      }
+
+      const remoteLeafBranches = remoteBranches.flatMap((branch) =>
+        branch.isFolder ? branch.children ?? [] : [branch]
+      );
+
+      const remoteMatches = remoteLeafBranches.filter((branch) => {
+        const full = getRemoteBranchRef(branch);
+        const remotePath = branch.folder ? `${branch.folder}/${branch.name}` : branch.name;
+        return full === refName || remotePath === refName || branch.name === refName;
+      });
+
+      if (remoteMatches.length === 1) {
+        await handleCheckoutBranch(remoteMatches[0]!);
+        return;
+      }
+
+      if (remoteMatches.length > 1) {
+        toast.error(`Remote branch '${refName}' is ambiguous`);
+      }
+    },
+    [allBranches, getRemoteBranchRef, handleCheckoutBranch, localBranches, remoteBranches]
+  );
+
+  const handleBranchMenuSelect = useCallback(
+    async (branch: LocalBranch | RemoteBranch) => {
+      await handleCheckoutBranch(branch);
+      setIsBranchMenuOpen(false);
+      setBranchQuery("");
+    },
+    [handleCheckoutBranch]
+  );
+
+  const handleBranchMenuSubmit = useCallback(async () => {
+    const query = branchQuery.trim();
+    if (!query) return;
+
+    const normalizedQuery = query.toLowerCase();
+    const exactMatch = allBranches.find((branch) => {
+      const label = branch.type === "remote" ? getRemoteBranchRef(branch) : branch.name;
+      return label.toLowerCase() === normalizedQuery;
+    });
+
+    if (exactMatch) {
+      await handleBranchMenuSelect(exactMatch);
+      return;
+    }
+
+    if (filteredBranches.length === 1) {
+      await handleBranchMenuSelect(filteredBranches[0]!);
+      return;
+    }
+
+    toast.error("Type the full branch name or narrow your search");
+  }, [allBranches, branchQuery, filteredBranches, getRemoteBranchRef, handleBranchMenuSelect]);
 
   const handleCreateBranch = useCallback(async () => {
     const name = window.prompt("New branch name");
@@ -287,21 +419,38 @@ function RepoView({ repoPath, repoName, onClose }: RepoViewProps) {
   return (
     <div className="app">
       <div className="tabbar">
-        <button className="icon-btn" title="Launchpad" onClick={onClose}>
+        <button className="icon-btn" title="Launchpad" onClick={onCloseAll}>
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M2 4h12M2 8h12M2 12h12" />
           </svg>
         </button>
-        <div className="tab active">
-          <span className="branch-icon">
-            <IconBranch size={11} />
-          </span>
-          {repoName}
-          <button className="close" title="Close repository" onClick={onClose}>
-            <IconX size={10} />
-          </button>
-        </div>
-        <button className="new-tab" title="Open repository" onClick={onClose}>
+        {openRepos.map((openRepo) => {
+          const isActive = openRepo.path === activePath;
+          return (
+            <div
+              key={openRepo.path}
+              className={"tab" + (isActive ? " active" : "")}
+              onClick={() => onSwitchRepo(openRepo.path)}
+              title={openRepo.path}
+            >
+              <span className="branch-icon">
+                <IconBranch size={11} />
+              </span>
+              {openRepo.name}
+              <button
+                className="close"
+                title="Close repository"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCloseRepo(openRepo.path);
+                }}
+              >
+                <IconX size={10} />
+              </button>
+            </div>
+          );
+        })}
+        <button className="new-tab" title="Open repository" onClick={onCloseAll}>
           +
         </button>
 
@@ -319,25 +468,55 @@ function RepoView({ repoPath, repoName, onClose }: RepoViewProps) {
       <div className="toolbar">
         <div className="field">
           <span className="label">repository</span>
-          <span className="value">
-            {repoName}
-            <span className="nav-arrows">
-              <button title="Back" onClick={onClose}>
-                <IconChevronLeft size={11} />
-              </button>
-              <button title="Forward" onClick={onClose}>
-                <IconChevronRight size={11} />
-              </button>
-            </span>
-          </span>
+          <span className="value">{repoName}</span>
         </div>
         <div className="divider" />
-        <div className="field">
+        <div className="field branch-field" ref={branchMenuRef}>
           <span className="label">branch</span>
-          <span className="value">
+          <button
+            className="value branch-value-btn"
+            title="Switch branch"
+            onClick={() => setIsBranchMenuOpen((open) => !open)}
+          >
             {currentBranch}
             <IconCaretDown size={12} style={{ color: "var(--text-3)" }} />
-          </span>
+          </button>
+          {isBranchMenuOpen && (
+            <div className="branch-menu">
+              <input
+                type="text"
+                placeholder="Search branches"
+                value={branchQuery}
+                onChange={(event) => setBranchQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void handleBranchMenuSubmit();
+                  }
+                }}
+                autoFocus
+              />
+              <div className="branch-menu-list">
+                {filteredBranches.map((branch) => {
+                  const label = branch.type === "remote" ? getRemoteBranchRef(branch) : branch.name;
+                  const isCurrent = branch.id === currentBranchId;
+                  return (
+                    <button
+                      key={branch.id}
+                      className={"branch-menu-item" + (isCurrent ? " current" : "")}
+                      onClick={() => void handleBranchMenuSelect(branch)}
+                    >
+                      <IconBranch size={12} />
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
+                {filteredBranches.length === 0 && (
+                  <div className="branch-menu-empty">No branches found</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <div className="actions">
           <ToolbarAction icon={<IconArrowCounterclockwise size={16} />} label="Undo" disabled />
@@ -395,6 +574,7 @@ function RepoView({ repoPath, repoName, onClose }: RepoViewProps) {
             selectedCommitId={selectedCommit?.id}
             onSelectCommit={handleSelectCommit}
             onSelectWip={handleSelectWip}
+            onCheckoutRef={(refName) => void handleCheckoutRef(refName)}
           />
           {mainView === "filePreview" && selectedFile && (
             <DiffPreviewWorkspace

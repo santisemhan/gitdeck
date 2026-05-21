@@ -11,17 +11,22 @@ export interface ActiveRepo {
 }
 
 export interface UseActiveRepo {
+  repos: ActiveRepo[];
   repo: ActiveRepo | null;
+  activePath: string | null;
   recents: Repository[];
   ready: boolean;
   openPicker: () => Promise<void>;
   openByPath: (repo: Repository) => Promise<void>;
+  setActiveByPath: (path: string) => void;
+  closeByPath: (path: string) => void;
   refreshRecents: () => Promise<void>;
   close: () => void;
 }
 
 export function useActiveRepo(): UseActiveRepo {
-  const [repo, setRepo] = useState<ActiveRepo | null>(null);
+  const [repos, setRepos] = useState<ActiveRepo[]>([]);
+  const [activePath, setActivePath] = useState<string | null>(null);
   const [recents, setRecents] = useState<Repository[]>([]);
   const [ready, setReady] = useState(false);
 
@@ -43,7 +48,8 @@ export function useActiveRepo(): UseActiveRepo {
           try {
             await gitClient.status(match.path);
             if (!cancelled) {
-              setRepo({ path: match.path, name: match.name });
+              setRepos([{ path: match.path, name: match.name }]);
+              setActivePath(match.path);
             }
           } catch {
             localStorage.removeItem(LAST_REPO_KEY);
@@ -57,13 +63,16 @@ export function useActiveRepo(): UseActiveRepo {
     };
   }, []);
 
-  const adopt = useCallback(
-    (path: string, name: string) => {
-      setRepo({ path, name });
-      localStorage.setItem(LAST_REPO_KEY, path);
-    },
-    []
-  );
+  const adopt = useCallback((path: string, name: string) => {
+    setRepos((current) => {
+      if (current.some((repo) => repo.path === path)) {
+        return current;
+      }
+      return [...current, { path, name }];
+    });
+    setActivePath(path);
+    localStorage.setItem(LAST_REPO_KEY, path);
+  }, []);
 
   const openPicker = useCallback(async () => {
     const result = await gitClient.selectRepository();
@@ -90,9 +99,53 @@ export function useActiveRepo(): UseActiveRepo {
   );
 
   const close = useCallback(() => {
-    setRepo(null);
+    setActivePath(null);
     localStorage.removeItem(LAST_REPO_KEY);
   }, []);
 
-  return { repo, recents, ready, openPicker, openByPath, refreshRecents, close };
+  const setActiveByPath = useCallback((path: string) => {
+    if (!repos.some((repo) => repo.path === path)) {
+      return;
+    }
+    setActivePath(path);
+    localStorage.setItem(LAST_REPO_KEY, path);
+  }, [repos]);
+
+  const closeByPath = useCallback((path: string) => {
+    setRepos((current) => {
+      const index = current.findIndex((repo) => repo.path === path);
+      if (index < 0) return current;
+      const next = current.filter((repo) => repo.path !== path);
+      if (next.length === 0) {
+        setActivePath(null);
+        localStorage.removeItem(LAST_REPO_KEY);
+      } else {
+        setActivePath((currentActivePath) => {
+          if (currentActivePath !== path) {
+            return currentActivePath;
+          }
+          const fallback = next[Math.min(index, next.length - 1)]!;
+          localStorage.setItem(LAST_REPO_KEY, fallback.path);
+          return fallback.path;
+        });
+      }
+      return next;
+    });
+  }, []);
+
+  const repo = repos.find((item) => item.path === activePath) ?? null;
+
+  return {
+    repos,
+    repo,
+    activePath,
+    recents,
+    ready,
+    openPicker,
+    openByPath,
+    setActiveByPath,
+    closeByPath,
+    refreshRecents,
+    close
+  };
 }

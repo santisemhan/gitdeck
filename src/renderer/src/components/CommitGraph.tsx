@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import type { Commit, CommitRef } from "../data/types";
 import {
   IconCaretDown,
-  IconCheck,
   IconGear,
   IconMonitor,
   IconPlus,
@@ -27,6 +26,7 @@ interface CommitGraphProps {
   selectedCommitId?: string;
   onSelectCommit: (commit: Commit) => void;
   onSelectWip: () => void;
+  onCheckoutRef?: (refName: string) => void;
 }
 
 export function CommitGraph({
@@ -34,6 +34,7 @@ export function CommitGraph({
   selectedCommitId,
   onSelectCommit,
   onSelectWip,
+  onCheckoutRef,
 }: CommitGraphProps) {
   const byId = useMemo(() => {
     const m: Record<string, Commit & { rowIdx: number }> = {};
@@ -211,6 +212,7 @@ export function CommitGraph({
                 commit={c}
                 selected={c.id === selectedCommitId}
                 onSelect={() => (c.isWip ? onSelectWip() : onSelectCommit(c))}
+                onCheckoutRef={onCheckoutRef}
               />
             ))}
           </div>
@@ -224,9 +226,10 @@ interface CommitRowProps {
   commit: Commit;
   selected: boolean;
   onSelect: () => void;
+  onCheckoutRef?: (refName: string) => void;
 }
 
-function CommitRow({ commit, selected, onSelect }: CommitRowProps) {
+function CommitRow({ commit, selected, onSelect, onCheckoutRef }: CommitRowProps) {
   const c = commit;
 
   return (
@@ -237,7 +240,7 @@ function CommitRow({ commit, selected, onSelect }: CommitRowProps) {
     >
       <div className="commit-row-cell labels">
         {(c.refs || []).map((r, idx) => (
-          <RefPill key={idx} refData={r} first={idx === 0} />
+          <RefPill key={idx} refData={r} first={idx === 0} onCheckoutRef={onCheckoutRef} />
         ))}
       </div>
 
@@ -264,7 +267,15 @@ function CommitRow({ commit, selected, onSelect }: CommitRowProps) {
   );
 }
 
-function RefPill({ refData, first }: { refData: CommitRef; first: boolean }) {
+function RefPill({
+  refData,
+  first,
+  onCheckoutRef,
+}: {
+  refData: CommitRef;
+  first: boolean;
+  onCheckoutRef?: (refName: string) => void;
+}) {
   if (refData.kind === "more") {
     return (
       <span
@@ -276,8 +287,23 @@ function RefPill({ refData, first }: { refData: CommitRef; first: boolean }) {
     );
   }
   return (
-    <span className={"branch-pill" + (refData.current ? " current" : "")} title={refData.name}>
-      {refData.current && <IconCheck size={10} className="check" />}
+    <span
+      className={
+        "branch-pill" +
+        (refData.current ? " current" : "") +
+        (refData.kind === "branch" ? " checkoutable" : "")
+      }
+      title={
+        refData.kind === "branch"
+          ? `${refData.name} (double click to checkout)`
+          : refData.name
+      }
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        if (refData.kind !== "branch" || !refData.name) return;
+        onCheckoutRef?.(refData.name);
+      }}
+    >
       <span className="pname">{refData.name}</span>
       <IconMonitor size={10} style={{ color: "var(--text-3)", flexShrink: 0 }} />
       {first && refData.current && (

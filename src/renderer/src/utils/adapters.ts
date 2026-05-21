@@ -67,19 +67,25 @@ export function parseRefs(refs: string): CommitRef[] {
     }
   }
 
-  const localBranchNames = new Set(
-    out
-      .filter((r) => r.kind === "branch" && r.name && !r.name.includes("/"))
-      .map((r) => r.name as string)
-  );
-
-  return out.filter((r) => {
-    if (r.kind !== "branch" || !r.name) return true;
-    const slash = r.name.indexOf("/");
-    if (slash <= 0) return true;
-    const remoteBranchName = r.name.slice(slash + 1);
-    return !localBranchNames.has(remoteBranchName);
+  const normalized = out.map((ref) => {
+    if (ref.kind !== "branch" || !ref.name) return ref;
+    const name = ref.name.startsWith("origin/") ? ref.name.slice("origin/".length) : ref.name;
+    return { ...ref, name };
   });
+
+  const deduped: CommitRef[] = [];
+  for (const ref of normalized) {
+    const key = `${ref.kind}:${ref.name ?? ""}`;
+    const existingIndex = deduped.findIndex((item) => `${item.kind}:${item.name ?? ""}` === key);
+    if (existingIndex === -1) {
+      deduped.push(ref);
+      continue;
+    }
+    if (ref.current && !deduped[existingIndex].current) {
+      deduped[existingIndex] = ref;
+    }
+  }
+  return deduped;
 }
 
 export function toCommits(
@@ -177,7 +183,8 @@ export function toBranches(
         id: "r-" + r.remote + "-" + r.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase(),
         name: r.name.slice(slash + 1),
         type: "remote",
-        remote: r.remote
+        remote: r.remote,
+        folder
       };
       grouped[folder] = grouped[folder] || [];
       grouped[folder].push(child);
