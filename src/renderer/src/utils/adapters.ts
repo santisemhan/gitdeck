@@ -3,6 +3,7 @@ import type {
   GitCommit,
   GitFileChange,
   GitFileKind,
+  GitStashEntry,
   GitStatus
 } from "../../../shared/types";
 import type {
@@ -88,26 +89,99 @@ export function parseRefs(refs: string): CommitRef[] {
   return deduped;
 }
 
+interface StashSynthetic {
+  isStashSynthetic: true;
+  stashIndex: number;
+  stashMessage: string;
+  stashBranch: string;
+  stashDate: string;
+  hash: string;
+}
+
 export function toCommits(
   history: GitCommit[],
-  options: { unstagedCount: number; stagedCount: number; currentBranch?: string }
+  options: {
+    unstagedCount: number;
+    stagedCount: number;
+    currentBranch?: string;
+    stashes?: GitStashEntry[];
+  }
 ): Commit[] {
-  const flat = history.map((h) => ({
+  type FlatEntry = {
+    id: string;
+    parents: string[];
+    raw: GitCommit | null;
+    stash: StashSynthetic | null;
+  };
+
+  const flat: FlatEntry[] = history.map((h) => ({
     id: h.hash,
     parents: h.parents,
-    raw: h
+    raw: h,
+    stash: null
   }));
+
+  const stashes = options.stashes || [];
+  if (stashes.length > 0) {
+    const indexById = new Map<string, number>();
+    flat.forEach((entry, idx) => indexById.set(entry.id, idx));
+
+    const sortedStashes = [...stashes].sort((a, b) => a.index - b.index);
+    for (const stash of sortedStashes) {
+      const parentIdx = indexById.get(stash.parentHash);
+      if (parentIdx === undefined) {
+        console.warn(`Stash ${stash.hash} parent ${stash.parentHash} not in history; skipping`);
+        continue;
+      }
+      const entry: FlatEntry = {
+        id: stash.hash,
+        parents: [stash.parentHash],
+        raw: null,
+        stash: {
+          isStashSynthetic: true,
+          stashIndex: stash.index,
+          stashMessage: stash.message,
+          stashBranch: stash.branch,
+          stashDate: stash.dateISO,
+          hash: stash.hash
+        }
+      };
+      flat.splice(parentIdx, 0, entry);
+      indexById.clear();
+      flat.forEach((e, idx) => indexById.set(e.id, idx));
+    }
+  }
+
   const laned = assignLanes(flat);
   const commits: Commit[] = laned.map((c) => {
-    const refs = parseRefs(c.raw.refs);
+    if (c.stash) {
+      return {
+        id: c.id,
+        hash: c.stash.hash.slice(0, 7),
+        title: c.stash.stashMessage || "stash",
+        body: "",
+        author: "—",
+        email: "",
+        dateISO: c.stash.stashDate,
+        parents: c.parents,
+        parentsLanes: c.parentsLanes,
+        refs: [],
+        lane: c.lane,
+        isStash: true,
+        stashIndex: c.stash.stashIndex,
+        stashMessage: c.stash.stashMessage
+      };
+    }
+    const raw = c.raw!;
+    const refs = parseRefs(raw.refs);
     return {
       id: c.id,
-      hash: c.raw.shortHash || c.id.slice(0, 7),
-      title: c.raw.subject,
-      body: c.raw.body || "",
-      author: c.raw.authorName,
-      email: c.raw.authorEmail,
-      dateISO: c.raw.date,
+      hash: raw.shortHash || c.id.slice(0, 7),
+      title: raw.subject,
+      body: raw.body || "",
+      author: raw.authorName,
+      email: raw.authorEmail,
+      dateISO: raw.date,
       parents: c.parents,
       parentsLanes: c.parentsLanes,
       refs,
@@ -118,7 +192,7 @@ export function toCommits(
 
   const total = options.unstagedCount + options.stagedCount;
   if (total > 0 && commits.length > 0) {
-    const head = commits[0];
+    const head = commits.find((c) => !c.isStash) || commits[0];
     const wip: Commit = {
       id: "c-wip",
       hash: "WIP",

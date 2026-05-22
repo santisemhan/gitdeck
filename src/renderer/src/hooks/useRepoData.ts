@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import type {
   GitBranch,
   GitCommit,
+  GitStashEntry,
   GitStatus
 } from "../../../shared/types";
 import { describeError, gitClient } from "../services/gitClient";
@@ -11,6 +12,7 @@ export interface RepoSnapshot {
   status: GitStatus | null;
   history: GitCommit[];
   branches: GitBranch[];
+  stashes: GitStashEntry[];
 }
 
 export interface UseRepoData {
@@ -30,10 +32,14 @@ export interface UseRepoData {
   createBranch: (name: string, startPoint?: string) => Promise<void>;
   deleteBranch: (name: string) => Promise<void>;
   renameBranch: (oldName: string, newName: string) => Promise<void>;
+  stashPush: (message: string) => Promise<boolean>;
+  stashPop: (index: number) => Promise<void>;
+  stashApply: (index: number) => Promise<void>;
+  stashDrop: (index: number) => Promise<void>;
 }
 
 export function useRepoData(repoPath: string | null): UseRepoData {
-  const [data, setData] = useState<RepoSnapshot>({ status: null, history: [], branches: [] });
+  const [data, setData] = useState<RepoSnapshot>({ status: null, history: [], branches: [], stashes: [] });
   const [loading, setLoading] = useState(false);
   const inflight = useRef(0);
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,13 +49,14 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     const token = ++inflight.current;
     setLoading(true);
     try {
-      const [status, history, branches] = await Promise.all([
+      const [status, history, branches, stashes] = await Promise.all([
         gitClient.status(repoPath),
         gitClient.history(repoPath),
-        gitClient.branches(repoPath)
+        gitClient.branches(repoPath),
+        gitClient.stashList(repoPath)
       ]);
       if (token === inflight.current) {
-        setData({ status, history, branches });
+        setData({ status, history, branches, stashes });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load repository";
@@ -60,7 +67,7 @@ export function useRepoData(repoPath: string | null): UseRepoData {
   }, [repoPath]);
 
   useEffect(() => {
-    setData({ status: null, history: [], branches: [] });
+    setData({ status: null, history: [], branches: [], stashes: [] });
     void load();
   }, [load]);
 
@@ -228,6 +235,32 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     [run, repoPath]
   );
 
+  const stashPush = useCallback(
+    async (message: string) => run(() => gitClient.stashPush(repoPath!, message), "Stash created", "Stash failed"),
+    [run, repoPath]
+  );
+
+  const stashPop = useCallback(
+    async (index: number) => {
+      await run(() => gitClient.stashPop(repoPath!, index), "Stash popped", "Stash pop failed");
+    },
+    [run, repoPath]
+  );
+
+  const stashApply = useCallback(
+    async (index: number) => {
+      await run(() => gitClient.stashApply(repoPath!, index), "Stash applied", "Stash apply failed");
+    },
+    [run, repoPath]
+  );
+
+  const stashDrop = useCallback(
+    async (index: number) => {
+      await run(() => gitClient.stashDrop(repoPath!, index), "Stash dropped", "Stash drop failed");
+    },
+    [run, repoPath]
+  );
+
   return {
     data,
     loading,
@@ -244,6 +277,10 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     checkoutRemoteBranch,
     createBranch,
     deleteBranch,
-    renameBranch
+    renameBranch,
+    stashPush,
+    stashPop,
+    stashApply,
+    stashDrop
   };
 }

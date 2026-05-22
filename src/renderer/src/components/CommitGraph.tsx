@@ -23,6 +23,7 @@ const NODE_R = 7;
 const LANE_X = (lane: number) => 14 + lane * 18;
 
 type BranchCtxMenu = { x: number; y: number; refName: string; isCurrent: boolean };
+type StashCtxMenu = { x: number; y: number; index: number; message: string };
 
 interface CommitGraphProps {
   commits: Commit[];
@@ -33,6 +34,9 @@ interface CommitGraphProps {
   onCreateBranchFrom?: (refName: string) => void;
   onDeleteBranch?: (refName: string) => void;
   onRequestRenameBranch?: (name: string) => void;
+  onStashPop?: (index: number) => void;
+  onStashApply?: (index: number) => void;
+  onStashDrop?: (index: number) => void;
 }
 
 export function CommitGraph({
@@ -44,6 +48,9 @@ export function CommitGraph({
   onCreateBranchFrom,
   onDeleteBranch,
   onRequestRenameBranch,
+  onStashPop,
+  onStashApply,
+  onStashDrop,
 }: CommitGraphProps) {
   const [columns, setColumns] = useState({ labels: 200, graph: 60 });
   const resizeRef = useRef<{ key: "labels" | "graph"; startX: number; startWidth: number } | null>(null);
@@ -106,6 +113,7 @@ export function CommitGraph({
       fromRow: number;
       toRow: number;
       color: string;
+      dashed: boolean;
     }[] = [];
     commits.forEach((c, i) => {
       c.parents.forEach((pid, parentIdx) => {
@@ -120,6 +128,7 @@ export function CommitGraph({
           fromRow: i,
           toRow: parent.rowIdx,
           color: laneColor(isMergeParent ? toLane : fromLane),
+          dashed: !!c.isStash,
         });
       });
     });
@@ -127,6 +136,7 @@ export function CommitGraph({
   }, [commits, byId]);
 
   const [branchCtxMenu, setBranchCtxMenu] = useState<BranchCtxMenu | null>(null);
+  const [stashCtxMenu, setStashCtxMenu] = useState<StashCtxMenu | null>(null);
 
   useEffect(() => {
     if (!branchCtxMenu) return;
@@ -142,9 +152,30 @@ export function CommitGraph({
     };
   }, [branchCtxMenu]);
 
+  useEffect(() => {
+    if (!stashCtxMenu) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      setStashCtxMenu(null);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [stashCtxMenu]);
+
   const handleRefContextMenu = useCallback(
     (refName: string, isCurrent: boolean, x: number, y: number) => {
       setBranchCtxMenu({ x, y, refName, isCurrent });
+    },
+    []
+  );
+
+  const handleStashContextMenu = useCallback(
+    (index: number, message: string, x: number, y: number) => {
+      setStashCtxMenu({ x, y, index, message });
     },
     []
   );
@@ -204,6 +235,7 @@ export function CommitGraph({
                     y2={toY}
                     stroke={e.color}
                     strokeWidth="2.2"
+                    strokeDasharray={e.dashed ? "4 3" : undefined}
                   />
                 );
               }
@@ -237,6 +269,7 @@ export function CommitGraph({
                   strokeWidth="2.2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  strokeDasharray={e.dashed ? "4 3" : undefined}
                 />
               );
             })}
@@ -246,6 +279,31 @@ export function CommitGraph({
               const cy = i * ROW_H + ROW_H / 2;
               const color = laneColor(c.lane);
               const sel = c.id === selectedCommitId;
+
+              if (c.isStash) {
+                const s = NODE_R;
+                const points = `${cx},${cy - s} ${cx + s},${cy} ${cx},${cy + s} ${cx - s},${cy}`;
+                return (
+                  <g
+                    key={c.id}
+                    className="stash-marker"
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      handleStashContextMenu(c.stashIndex ?? 0, c.stashMessage || "", event.clientX, event.clientY);
+                    }}
+                  >
+                    <polygon
+                      points={points}
+                      fill="var(--bg-1)"
+                      stroke={color}
+                      strokeWidth="2"
+                      strokeDasharray="3 2"
+                      strokeLinejoin="round"
+                    />
+                  </g>
+                );
+              }
 
               if (c.isWip) {
                 return (
@@ -290,6 +348,7 @@ export function CommitGraph({
                   onSelect={() => (c.isWip ? onSelectWip() : onSelectCommit(c))}
                   onCheckoutRef={onCheckoutRef}
                   onRefContextMenu={handleRefContextMenu}
+                  onStashContextMenu={handleStashContextMenu}
                 />
               ))}
             </div>
@@ -343,6 +402,49 @@ export function CommitGraph({
           </>
         </div>
       )}
+
+      {stashCtxMenu && (
+        <div
+          className="ctx-menu"
+          style={{ left: stashCtxMenu.x, top: stashCtxMenu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+          role="menu"
+        >
+          <button
+            type="button"
+            className="ctx-menu-item"
+            role="menuitem"
+            onClick={() => {
+              onStashPop?.(stashCtxMenu.index);
+              setStashCtxMenu(null);
+            }}
+          >
+            Pop
+          </button>
+          <button
+            type="button"
+            className="ctx-menu-item"
+            role="menuitem"
+            onClick={() => {
+              onStashApply?.(stashCtxMenu.index);
+              setStashCtxMenu(null);
+            }}
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            className="ctx-menu-item ctx-menu-item-danger"
+            role="menuitem"
+            onClick={() => {
+              onStashDrop?.(stashCtxMenu.index);
+              setStashCtxMenu(null);
+            }}
+          >
+            Drop
+          </button>
+        </div>
+      )}
     </>
   );
 }
@@ -353,16 +455,28 @@ interface CommitRowProps {
   onSelect: () => void;
   onCheckoutRef?: (refName: string) => void;
   onRefContextMenu?: (refName: string, isCurrent: boolean, x: number, y: number) => void;
+  onStashContextMenu?: (index: number, message: string, x: number, y: number) => void;
 }
 
-function CommitRow({ commit, selected, onSelect, onCheckoutRef, onRefContextMenu }: CommitRowProps) {
+function CommitRow({ commit, selected, onSelect, onCheckoutRef, onRefContextMenu, onStashContextMenu }: CommitRowProps) {
   const c = commit;
 
   return (
     <div
-      className={"commit-row" + (selected ? " selected" : "") + (c.isWip ? " wip-row" : "")}
+      className={
+        "commit-row" +
+        (selected ? " selected" : "") +
+        (c.isWip ? " wip-row" : "") +
+        (c.isStash ? " stash-row" : "")
+      }
       role="listitem"
       onClick={onSelect}
+      onContextMenu={(event) => {
+        if (!c.isStash) return;
+        event.preventDefault();
+        event.stopPropagation();
+        onStashContextMenu?.(c.stashIndex ?? 0, c.stashMessage || "", event.clientX, event.clientY);
+      }}
     >
       <div className="commit-row-cell labels">
         {(c.refs || []).map((r, idx) => (
@@ -386,6 +500,11 @@ function CommitRow({ commit, selected, onSelect, onCheckoutRef, onRefContextMenu
               <IconPlus size={11} /> {c.additions}
             </span>
           </>
+        ) : c.isStash ? (
+          <span className="stash-pill">
+            <span className="stash-tag">stash</span>
+            <span className="stash-name">{c.stashMessage || c.title}</span>
+          </span>
         ) : (
           <span className="commit-msg">
             <span className="title">{c.title}</span>

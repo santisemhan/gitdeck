@@ -82,6 +82,15 @@ export interface GitCommit {
   body: string;
 }
 
+export interface GitStashEntry {
+  index: number;
+  hash: string;
+  parentHash: string;
+  message: string;
+  branch: string;
+  dateISO: string;
+}
+
 export interface GitOperationResult {
   ok: boolean;
   code: number;
