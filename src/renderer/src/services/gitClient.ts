@@ -116,6 +116,12 @@ export const gitClient = {
   stashDrop(repoPath: string, index: number): Promise<GitOperationResult> {
     return api().stashDrop(repoPath, index);
   },
+  cherryPick(repoPath: string, hash: string): Promise<GitOperationResult> {
+    return api().cherryPick(repoPath, hash);
+  },
+  revertCommit(repoPath: string, hash: string): Promise<GitOperationResult> {
+    return api().revertCommit(repoPath, hash);
+  },
   watchRepository(repoPath: string): Promise<WatchOperationResult> {
     return api().watchRepository(repoPath);
   },

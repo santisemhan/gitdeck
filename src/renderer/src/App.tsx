@@ -672,6 +672,8 @@ function RepoView({
             onStashPop={(index) => void handleStashPop(index)}
             onStashApply={(index) => void handleStashApply(index)}
             onStashDrop={(index) => void handleStashDrop(index)}
+            onCherryPick={(hash) => void data.cherryPick(hash)}
+            onRevertCommit={(hash) => void data.revertCommit(hash)}
           />
           {mainView === "filePreview" && selectedFile && (
             <DiffPreviewWorkspace

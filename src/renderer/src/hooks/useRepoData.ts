@@ -36,6 +36,8 @@ export interface UseRepoData {
   stashPop: (index: number) => Promise<void>;
   stashApply: (index: number) => Promise<void>;
   stashDrop: (index: number) => Promise<void>;
+  cherryPick: (hash: string) => Promise<void>;
+  revertCommit: (hash: string) => Promise<void>;
 }
 
 export function useRepoData(repoPath: string | null): UseRepoData {
@@ -261,6 +263,20 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     [run, repoPath]
   );
 
+  const cherryPick = useCallback(
+    async (hash: string) => {
+      await run(() => gitClient.cherryPick(repoPath!, hash), "Cherry pick applied", "Cherry pick failed");
+    },
+    [run, repoPath]
+  );
+
+  const revertCommit = useCallback(
+    async (hash: string) => {
+      await run(() => gitClient.revertCommit(repoPath!, hash), "Commit reverted", "Revert failed");
+    },
+    [run, repoPath]
+  );
+
   return {
     data,
     loading,
@@ -281,6 +297,8 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     stashPush,
     stashPop,
     stashApply,
-    stashDrop
+    stashDrop,
+    cherryPick,
+    revertCommit
   };
 }
