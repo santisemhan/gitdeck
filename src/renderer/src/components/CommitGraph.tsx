@@ -542,41 +542,35 @@ function RefPill({
     );
   }
 
-  const isRemote = !!refData.remote;
-  const checkoutLabel = isRemote
-    ? `${refData.remote}/${refData.name} (double click to checkout)`
-    : `${refData.name} (double click to checkout)`;
+  const hasLocal = refData.hasLocal ?? !refData.remote;
+  const hasRemote = !!refData.remote;
+  // A pill is "remote-only" when there is no local branch — used to hide Rename/Delete
+  const remoteOnly = hasRemote && !hasLocal;
 
   return (
     <span
       className={
         "branch-pill" +
         (refData.current ? " current" : "") +
-        (isRemote ? " remote" : "") +
+        (remoteOnly ? " remote" : "") +
         (refData.kind === "branch" ? " checkoutable" : "")
       }
-      title={refData.kind === "branch" ? checkoutLabel : refData.name}
+      title={refData.kind === "branch" ? `${refData.name} (double click to checkout)` : refData.name}
       onDoubleClick={(event) => {
         event.stopPropagation();
         if (refData.kind !== "branch" || !refData.name) return;
-        // For remote tracking, pass the full "remote/branch" name so the checkout logic can resolve it
-        onCheckoutRef?.(isRemote ? `${refData.remote}/${refData.name}` : refData.name);
+        onCheckoutRef?.(refData.name);
       }}
       onContextMenu={(event) => {
         event.preventDefault();
         event.stopPropagation();
         if (refData.kind !== "branch" || !refData.name) return;
-        onContextMenu?.(refData.name, !!refData.current, isRemote, event.clientX, event.clientY);
+        onContextMenu?.(refData.name, !!refData.current, remoteOnly, event.clientX, event.clientY);
       }}
     >
-      {isRemote && (
-        <span className="branch-pill-remote-prefix">{refData.remote}/</span>
-      )}
       <span className="pname">{refData.name}</span>
-      {isRemote
-        ? <IconCloud size={10} className="icon-muted-shrink" />
-        : <IconMonitor size={10} className="icon-muted-shrink" />
-      }
+      {hasLocal && <IconMonitor size={10} className="icon-muted-shrink" />}
+      {hasRemote && <IconCloud size={10} className="icon-muted-shrink" />}
       {first && refData.current && (
         <IconCaretDown size={9} className="text-muted" />
       )}

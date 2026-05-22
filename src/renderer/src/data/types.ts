@@ -16,8 +16,10 @@ export interface CommitRef {
   name?: string;
   current?: boolean;
   count?: number;
-  /** Set for remote-tracking branches (e.g. "origin", "upstream") */
+  /** Remote name if this branch has a remote-tracking ref (e.g. "origin") */
   remote?: string;
+  /** Whether a local branch with this name exists. Defaults to true when remote is unset. */
+  hasLocal?: boolean;
 }
 
 export interface Commit {

@@ -102,20 +102,43 @@ export function parseRefs(refs: string): CommitRef[] {
     }
   }
 
-  // Deduplicate by (kind, name, remote) — local "main" and remote "origin/main" are kept separate
-  const deduped: CommitRef[] = [];
+  // Merge local + remote entries for the same branch name into a single pill.
+  // Local-only → hasLocal: true, no remote
+  // Remote-only → hasLocal: false, remote: "origin"
+  // Both → hasLocal: true, remote: "origin"
+  const merged: CommitRef[] = [];
   for (const ref of out) {
-    const key = `${ref.kind}:${ref.name ?? ""}:${ref.remote ?? ""}`;
-    const existing = deduped.findIndex(
-      (item) => `${item.kind}:${item.name ?? ""}:${item.remote ?? ""}` === key
-    );
-    if (existing === -1) {
-      deduped.push(ref);
-    } else if (ref.current && !deduped[existing]!.current) {
-      deduped[existing] = ref; // prefer the current-marked entry
+    if (ref.kind !== "branch") {
+      // Tags: simple dedup by name
+      if (!merged.some((m) => m.kind === ref.kind && m.name === ref.name)) {
+        merged.push(ref);
+      }
+      continue;
+    }
+
+    const idx = merged.findIndex((m) => m.kind === "branch" && m.name === ref.name);
+
+    if (idx === -1) {
+      // First time we see this branch name
+      merged.push(ref.remote
+        ? { ...ref, hasLocal: false }   // remote-only so far
+        : { ...ref, hasLocal: true }    // local (may gain remote later)
+      );
+    } else {
+      const existing = merged[idx]!;
+      if (ref.remote && !existing.remote) {
+        // Had local, now also have remote
+        merged[idx] = { ...existing, remote: ref.remote, hasLocal: true };
+      } else if (!ref.remote && existing.remote) {
+        // Had remote, now also have local
+        merged[idx] = { ...existing, current: ref.current || existing.current, hasLocal: true };
+      } else if (ref.current && !existing.current) {
+        merged[idx] = { ...existing, current: true };
+      }
+      // exact duplicate → ignore
     }
   }
-  return deduped;
+  return merged;
 }
 
 interface StashSynthetic {
