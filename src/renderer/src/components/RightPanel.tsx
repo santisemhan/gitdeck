@@ -512,6 +512,7 @@ function CommitDetailsPanel({
   const totalAdd = commitFiles.reduce((s, f) => s + (f.additions || 0), 0);
   const totalDel = commitFiles.reduce((s, f) => s + (f.deletions || 0), 0);
   const parentHash = commit.parents[0]?.replace("c-", "").slice(0, 7) || "—";
+  const showAuthor = !commit.isStash;
 
   return (
     <>
@@ -541,11 +542,20 @@ function CommitDetailsPanel({
       </div>
 
       <div className="author-strip">
-        <div className="avatar">{initials(commit.author)}</div>
-        <div>
-          <div className="who">{commit.author}</div>
-          <div className="when">authored {formatDate(commit.dateISO)}</div>
-        </div>
+        {showAuthor ? (
+          <>
+            <div className="avatar">{initials(commit.author)}</div>
+            <div>
+              <div className="who">{commit.author}</div>
+              <div className="when">authored {formatDate(commit.dateISO)}</div>
+            </div>
+          </>
+        ) : (
+          <div>
+            <div className="who">stash entry</div>
+            <div className="when">saved {formatDate(commit.dateISO)}</div>
+          </div>
+        )}
         <div className="parent">
           parent<span className="hash">{parentHash}</span>
         </div>
