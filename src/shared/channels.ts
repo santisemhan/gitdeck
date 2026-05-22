@@ -26,6 +26,7 @@ export const Channels = {
   cherryPick: "git:cherryPick",
   continueCherryPick: "git:continueCherryPick",
   abortCherryPick: "git:abortCherryPick",
+  revertCommit: "git:revertCommit",
   stashList: "git:stashList",
   stashPush: "git:stashPush",
   stashPop: "git:stashPop",

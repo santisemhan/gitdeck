@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld("gitdeck", {
   cherryPick: (repoPath: string, commitHash: string) => ipcRenderer.invoke(Channels.cherryPick, repoPath, commitHash),
   continueCherryPick: (repoPath: string) => ipcRenderer.invoke(Channels.continueCherryPick, repoPath),
   abortCherryPick: (repoPath: string) => ipcRenderer.invoke(Channels.abortCherryPick, repoPath),
+  revertCommit: (repoPath: string, hash: string) => ipcRenderer.invoke(Channels.revertCommit, repoPath, hash),
   stashList: (repoPath: string) => ipcRenderer.invoke(Channels.stashList, repoPath),
   stashPush: (repoPath: string, message: string) => ipcRenderer.invoke(Channels.stashPush, repoPath, message),
   stashPop: (repoPath: string, index: number) => ipcRenderer.invoke(Channels.stashPop, repoPath, index),

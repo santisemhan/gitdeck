@@ -24,7 +24,8 @@ const NODE_R = 7;
 const LANE_X = (lane: number) => 14 + lane * 18;
 
 type BranchCtxMenu = { x: number; y: number; refName: string; isCurrent: boolean; isRemote: boolean };
-type StashCtxMenu = { x: number; y: number; index: number; message: string };
+type StashCtxMenu  = { x: number; y: number; index: number; message: string };
+type CommitCtxMenu = { x: number; y: number; hash: string; title: string };
 
 interface CommitGraphProps {
   commits: Commit[];
@@ -38,6 +39,8 @@ interface CommitGraphProps {
   onStashPop?: (index: number) => void;
   onStashApply?: (index: number) => void;
   onStashDrop?: (index: number) => void;
+  onCherryPick?: (hash: string) => void;
+  onRevertCommit?: (hash: string) => void;
 }
 
 export function CommitGraph({
@@ -52,6 +55,8 @@ export function CommitGraph({
   onStashPop,
   onStashApply,
   onStashDrop,
+  onCherryPick,
+  onRevertCommit,
 }: CommitGraphProps) {
   const [columns, setColumns] = useState({ labels: 200, graph: 60 });
   const resizeRef = useRef<{ key: "labels" | "graph"; startX: number; startWidth: number } | null>(null);
@@ -137,7 +142,8 @@ export function CommitGraph({
   }, [commits, byId]);
 
   const [branchCtxMenu, setBranchCtxMenu] = useState<BranchCtxMenu | null>(null);
-  const [stashCtxMenu, setStashCtxMenu] = useState<StashCtxMenu | null>(null);
+  const [stashCtxMenu,  setStashCtxMenu]  = useState<StashCtxMenu  | null>(null);
+  const [commitCtxMenu, setCommitCtxMenu] = useState<CommitCtxMenu | null>(null);
 
   useEffect(() => {
     if (!branchCtxMenu) return;
@@ -166,6 +172,27 @@ export function CommitGraph({
       document.removeEventListener("keydown", close);
     };
   }, [stashCtxMenu]);
+
+  useEffect(() => {
+    if (!commitCtxMenu) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      setCommitCtxMenu(null);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [commitCtxMenu]);
+
+  const handleCommitContextMenu = useCallback(
+    (hash: string, title: string, x: number, y: number) => {
+      setCommitCtxMenu({ x, y, hash, title });
+    },
+    []
+  );
 
   const handleRefContextMenu = useCallback(
     (refName: string, isCurrent: boolean, isRemote: boolean, x: number, y: number) => {
@@ -350,6 +377,7 @@ export function CommitGraph({
                   onCheckoutRef={onCheckoutRef}
                   onRefContextMenu={handleRefContextMenu}
                   onStashContextMenu={handleStashContextMenu}
+                  onCommitContextMenu={handleCommitContextMenu}
                 />
               ))}
             </div>
@@ -450,6 +478,38 @@ export function CommitGraph({
           </button>
         </div>
       )}
+
+      {commitCtxMenu && (
+        <div
+          className="ctx-menu"
+          style={{ left: commitCtxMenu.x, top: commitCtxMenu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+          role="menu"
+        >
+          <button
+            type="button"
+            className="ctx-menu-item"
+            role="menuitem"
+            onClick={() => {
+              onCherryPick?.(commitCtxMenu.hash);
+              setCommitCtxMenu(null);
+            }}
+          >
+            Cherry pick commit
+          </button>
+          <button
+            type="button"
+            className="ctx-menu-item"
+            role="menuitem"
+            onClick={() => {
+              onRevertCommit?.(commitCtxMenu.hash);
+              setCommitCtxMenu(null);
+            }}
+          >
+            Revert commit
+          </button>
+        </div>
+      )}
     </>
   );
 }
@@ -461,9 +521,10 @@ interface CommitRowProps {
   onCheckoutRef?: (refName: string) => void;
   onRefContextMenu?: (refName: string, isCurrent: boolean, isRemote: boolean, x: number, y: number) => void;
   onStashContextMenu?: (index: number, message: string, x: number, y: number) => void;
+  onCommitContextMenu?: (hash: string, title: string, x: number, y: number) => void;
 }
 
-function CommitRow({ commit, selected, onSelect, onCheckoutRef, onRefContextMenu, onStashContextMenu }: CommitRowProps) {
+function CommitRow({ commit, selected, onSelect, onCheckoutRef, onRefContextMenu, onStashContextMenu, onCommitContextMenu }: CommitRowProps) {
   const c = commit;
 
   return (
@@ -477,10 +538,13 @@ function CommitRow({ commit, selected, onSelect, onCheckoutRef, onRefContextMenu
       role="listitem"
       onClick={onSelect}
       onContextMenu={(event) => {
-        if (!c.isStash) return;
         event.preventDefault();
         event.stopPropagation();
-        onStashContextMenu?.(c.stashIndex ?? 0, c.stashMessage || "", event.clientX, event.clientY);
+        if (c.isStash) {
+          onStashContextMenu?.(c.stashIndex ?? 0, c.stashMessage || "", event.clientX, event.clientY);
+        } else if (!c.isWip) {
+          onCommitContextMenu?.(c.id, c.title, event.clientX, event.clientY);
+        }
       }}
     >
       <div className="commit-row-cell labels">

@@ -41,6 +41,7 @@ declare global {
       cherryPick(repoPath: string, commitHash: string): Promise<GitOperationResult>;
       continueCherryPick(repoPath: string): Promise<GitOperationResult>;
       abortCherryPick(repoPath: string): Promise<GitOperationResult>;
+      revertCommit(repoPath: string, hash: string): Promise<GitOperationResult>;
       stashList(repoPath: string): Promise<GitStashEntry[]>;
       stashPush(repoPath: string, message: string): Promise<GitOperationResult>;
       stashPop(repoPath: string, index: number): Promise<GitOperationResult>;

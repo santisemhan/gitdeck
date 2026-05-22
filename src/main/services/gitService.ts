@@ -485,6 +485,12 @@ export class GitService {
     return ok(result);
   }
 
+  async revertCommit(repoPath: string, commitHash: string): Promise<GitOperationResult> {
+    const result = await runGit(repoPath, ["revert", "--no-edit", commitHash]);
+    if (result.code !== 0) return fail(result, "Revert failed");
+    return ok(result);
+  }
+
   async listStashes(repoPath: string): Promise<GitStashEntry[]> {
     const SEP = "\x1f";
     const REC = "\x1e";
