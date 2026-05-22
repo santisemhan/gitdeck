@@ -3,6 +3,7 @@ import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import type { Commit, CommitRef } from "../data/types";
 import {
   IconCaretDown,
+  IconCloud,
   IconGear,
   IconMonitor,
   IconPlus,
@@ -22,7 +23,7 @@ const ROW_H = 30;
 const NODE_R = 7;
 const LANE_X = (lane: number) => 14 + lane * 18;
 
-type BranchCtxMenu = { x: number; y: number; refName: string; isCurrent: boolean };
+type BranchCtxMenu = { x: number; y: number; refName: string; isCurrent: boolean; isRemote: boolean };
 type StashCtxMenu = { x: number; y: number; index: number; message: string };
 
 interface CommitGraphProps {
@@ -167,8 +168,8 @@ export function CommitGraph({
   }, [stashCtxMenu]);
 
   const handleRefContextMenu = useCallback(
-    (refName: string, isCurrent: boolean, x: number, y: number) => {
-      setBranchCtxMenu({ x, y, refName, isCurrent });
+    (refName: string, isCurrent: boolean, isRemote: boolean, x: number, y: number) => {
+      setBranchCtxMenu({ x, y, refName, isCurrent, isRemote });
     },
     []
   );
@@ -375,30 +376,34 @@ export function CommitGraph({
             >
               New branch from here
             </button>
-            <button
-              type="button"
-              className="ctx-menu-item"
-              role="menuitem"
-              onClick={() => {
-                onRequestRenameBranch?.(branchCtxMenu.refName);
-                setBranchCtxMenu(null);
-              }}
-            >
-              Rename
-            </button>
-            <button
-              type="button"
-              className="ctx-menu-item ctx-menu-item-danger"
-              role="menuitem"
-              disabled={branchCtxMenu.isCurrent}
-              title={branchCtxMenu.isCurrent ? "Cannot delete the current branch" : undefined}
-              onClick={() => {
-                onDeleteBranch?.(branchCtxMenu.refName);
-                setBranchCtxMenu(null);
-              }}
-            >
-              Delete branch
-            </button>
+            {!branchCtxMenu.isRemote && (
+              <>
+                <button
+                  type="button"
+                  className="ctx-menu-item"
+                  role="menuitem"
+                  onClick={() => {
+                    onRequestRenameBranch?.(branchCtxMenu.refName);
+                    setBranchCtxMenu(null);
+                  }}
+                >
+                  Rename
+                </button>
+                <button
+                  type="button"
+                  className="ctx-menu-item ctx-menu-item-danger"
+                  role="menuitem"
+                  disabled={branchCtxMenu.isCurrent}
+                  title={branchCtxMenu.isCurrent ? "Cannot delete the current branch" : undefined}
+                  onClick={() => {
+                    onDeleteBranch?.(branchCtxMenu.refName);
+                    setBranchCtxMenu(null);
+                  }}
+                >
+                  Delete branch
+                </button>
+              </>
+            )}
           </>
         </div>
       )}
@@ -454,7 +459,7 @@ interface CommitRowProps {
   selected: boolean;
   onSelect: () => void;
   onCheckoutRef?: (refName: string) => void;
-  onRefContextMenu?: (refName: string, isCurrent: boolean, x: number, y: number) => void;
+  onRefContextMenu?: (refName: string, isCurrent: boolean, isRemote: boolean, x: number, y: number) => void;
   onStashContextMenu?: (index: number, message: string, x: number, y: number) => void;
 }
 
@@ -527,7 +532,7 @@ function RefPill({
   refData: CommitRef;
   first: boolean;
   onCheckoutRef?: (refName: string) => void;
-  onContextMenu?: (refName: string, isCurrent: boolean, x: number, y: number) => void;
+  onContextMenu?: (refName: string, isCurrent: boolean, isRemote: boolean, x: number, y: number) => void;
 }) {
   if (refData.kind === "more") {
     return (
@@ -536,18 +541,21 @@ function RefPill({
       </span>
     );
   }
+
+  const hasLocal = refData.hasLocal ?? !refData.remote;
+  const hasRemote = !!refData.remote;
+  // A pill is "remote-only" when there is no local branch — used to hide Rename/Delete
+  const remoteOnly = hasRemote && !hasLocal;
+
   return (
     <span
       className={
         "branch-pill" +
         (refData.current ? " current" : "") +
+        (remoteOnly ? " remote" : "") +
         (refData.kind === "branch" ? " checkoutable" : "")
       }
-      title={
-        refData.kind === "branch"
-          ? `${refData.name} (double click to checkout)`
-          : refData.name
-      }
+      title={refData.kind === "branch" ? `${refData.name} (double click to checkout)` : refData.name}
       onDoubleClick={(event) => {
         event.stopPropagation();
         if (refData.kind !== "branch" || !refData.name) return;
@@ -557,11 +565,12 @@ function RefPill({
         event.preventDefault();
         event.stopPropagation();
         if (refData.kind !== "branch" || !refData.name) return;
-        onContextMenu?.(refData.name, !!refData.current, event.clientX, event.clientY);
+        onContextMenu?.(refData.name, !!refData.current, remoteOnly, event.clientX, event.clientY);
       }}
     >
       <span className="pname">{refData.name}</span>
-      <IconMonitor size={10} className="icon-muted-shrink" />
+      {hasLocal && <IconMonitor size={10} className="icon-muted-shrink" />}
+      {hasRemote && <IconCloud size={10} className="icon-muted-shrink" />}
       {first && refData.current && (
         <IconCaretDown size={9} className="text-muted" />
       )}

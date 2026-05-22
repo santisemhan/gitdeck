@@ -242,7 +242,7 @@ export class GitService {
   }
 
   async getHistory(repoPath: string): Promise<ReturnType<typeof parseHistory>> {
-    const result = await runGit(repoPath, ["log", "--date=iso-strict", "--decorate=short", `--format=${historyFormat}`, "-n", "200", "--branches", "--remotes", "--tags", "HEAD"]);
+    const result = await runGit(repoPath, ["log", "--date=iso-strict", "--decorate=full", `--format=${historyFormat}`, "-n", "200", "--branches", "--remotes", "--tags", "HEAD"]);
     if (result.code !== 0) throw new Error(result.stderr || "Unable to get history");
     return parseHistory(result.stdout);
   }
@@ -329,7 +329,7 @@ export class GitService {
   }
 
   async getCommitDetails(repoPath: string, commitHash: string): Promise<CommitDetails> {
-    const history = await runGit(repoPath, ["show", "--date=iso-strict", "--decorate=short", `--format=${historyFormat}`, "-s", commitHash]);
+    const history = await runGit(repoPath, ["show", "--date=iso-strict", "--decorate=full", `--format=${historyFormat}`, "-s", commitHash]);
     if (history.code !== 0) throw new Error(history.stderr || "Unable to read commit");
     const commit = parseHistory(history.stdout)[0];
     const filesOutput = await runGit(repoPath, ["show", "--name-status", "--format=", commitHash]);
@@ -413,7 +413,7 @@ export class GitService {
   }
 
   async createBranch(repoPath: string, branchName: string, startPoint?: string): Promise<GitOperationResult> {
-    const args = ["branch", branchName];
+    const args = ["checkout", "-b", branchName];
     if (startPoint) args.push(startPoint);
     const result = await runGit(repoPath, args);
     if (result.code !== 0) return fail(result, "Create branch failed");

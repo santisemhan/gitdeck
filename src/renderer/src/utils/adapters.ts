@@ -53,40 +53,92 @@ function toChangedFile(f: GitFileChange, area: "staged" | "unstaged"): ChangedFi
 export function parseRefs(refs: string): CommitRef[] {
   if (!refs) return [];
   const out: CommitRef[] = [];
+
   for (const part of refs.split(",").map((s) => s.trim()).filter(Boolean)) {
-    if (/^[^/]+\/HEAD(\s+->\s+.+)?$/.test(part)) {
+    if (part === "HEAD") continue; // detached HEAD marker — no pill needed
+
+    // Current local branch: "HEAD -> refs/heads/main" (full) or "HEAD -> main" (short fallback)
+    if (part.startsWith("HEAD -> ")) {
+      const ref = part.slice("HEAD -> ".length);
+      const name = ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
+      out.push({ kind: "branch", name, current: true });
       continue;
     }
+
+    // Tag: "tag: refs/tags/v1.0" (full) or "tag: v1.0" (short fallback)
     if (part.startsWith("tag: ")) {
-      out.push({ kind: "tag", name: part.slice(5) });
-    } else if (part.startsWith("HEAD -> ")) {
-      out.push({ kind: "branch", name: part.slice(8), current: true });
-    } else if (part === "HEAD") {
-      // detached
+      const ref = part.slice("tag: ".length);
+      const name = ref.startsWith("refs/tags/") ? ref.slice("refs/tags/".length) : ref;
+      out.push({ kind: "tag", name });
+      continue;
+    }
+
+    // Full local branch: "refs/heads/feature/foo"
+    if (part.startsWith("refs/heads/")) {
+      out.push({ kind: "branch", name: part.slice("refs/heads/".length) });
+      continue;
+    }
+
+    // Full remote-tracking branch: "refs/remotes/origin/main"
+    if (part.startsWith("refs/remotes/")) {
+      const rest = part.slice("refs/remotes/".length); // e.g. "origin/main"
+      const slash = rest.indexOf("/");
+      if (slash < 0) continue; // malformed
+      const remote = rest.slice(0, slash);
+      const name = rest.slice(slash + 1);
+      if (name === "HEAD") continue; // skip origin/HEAD
+      out.push({ kind: "branch", name, remote });
+      continue;
+    }
+
+    // Short-format fallback (no refs/ prefix): skip origin/HEAD-style entries,
+    // then treat anything with "remote/" prefix as a remote ref.
+    if (/^[^/]+\/HEAD(\s+->\s+.+)?$/.test(part)) continue;
+    const shortRemoteMatch = part.match(/^([a-zA-Z0-9_.-]+)\/(.+)$/);
+    if (shortRemoteMatch) {
+      out.push({ kind: "branch", name: shortRemoteMatch[2], remote: shortRemoteMatch[1] });
     } else {
       out.push({ kind: "branch", name: part });
     }
   }
 
-  const normalized = out.map((ref) => {
-    if (ref.kind !== "branch" || !ref.name) return ref;
-    const name = ref.name.startsWith("origin/") ? ref.name.slice("origin/".length) : ref.name;
-    return { ...ref, name };
-  });
-
-  const deduped: CommitRef[] = [];
-  for (const ref of normalized) {
-    const key = `${ref.kind}:${ref.name ?? ""}`;
-    const existingIndex = deduped.findIndex((item) => `${item.kind}:${item.name ?? ""}` === key);
-    if (existingIndex === -1) {
-      deduped.push(ref);
+  // Merge local + remote entries for the same branch name into a single pill.
+  // Local-only → hasLocal: true, no remote
+  // Remote-only → hasLocal: false, remote: "origin"
+  // Both → hasLocal: true, remote: "origin"
+  const merged: CommitRef[] = [];
+  for (const ref of out) {
+    if (ref.kind !== "branch") {
+      // Tags: simple dedup by name
+      if (!merged.some((m) => m.kind === ref.kind && m.name === ref.name)) {
+        merged.push(ref);
+      }
       continue;
     }
-    if (ref.current && !deduped[existingIndex].current) {
-      deduped[existingIndex] = ref;
+
+    const idx = merged.findIndex((m) => m.kind === "branch" && m.name === ref.name);
+
+    if (idx === -1) {
+      // First time we see this branch name
+      merged.push(ref.remote
+        ? { ...ref, hasLocal: false }   // remote-only so far
+        : { ...ref, hasLocal: true }    // local (may gain remote later)
+      );
+    } else {
+      const existing = merged[idx]!;
+      if (ref.remote && !existing.remote) {
+        // Had local, now also have remote
+        merged[idx] = { ...existing, remote: ref.remote, hasLocal: true };
+      } else if (!ref.remote && existing.remote) {
+        // Had remote, now also have local
+        merged[idx] = { ...existing, current: ref.current || existing.current, hasLocal: true };
+      } else if (ref.current && !existing.current) {
+        merged[idx] = { ...existing, current: true };
+      }
+      // exact duplicate → ignore
     }
   }
-  return deduped;
+  return merged;
 }
 
 interface StashSynthetic {
