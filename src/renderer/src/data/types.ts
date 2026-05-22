@@ -16,6 +16,8 @@ export interface CommitRef {
   name?: string;
   current?: boolean;
   count?: number;
+  /** Set for remote-tracking branches (e.g. "origin", "upstream") */
+  remote?: string;
 }
 
 export interface Commit {

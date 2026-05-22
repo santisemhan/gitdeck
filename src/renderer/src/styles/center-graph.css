@@ -179,6 +179,20 @@
   color: var(--text-1);
 }
 .branch-pill.current .check { color: var(--accent); }
+.branch-pill.remote {
+  background: var(--bg-2);
+  border-color: var(--border-1);
+  color: var(--text-2);
+}
+.branch-pill.remote.checkoutable:hover {
+  border-color: var(--border-3);
+  color: var(--text-1);
+}
+.branch-pill-remote-prefix {
+  color: var(--text-3);
+  font-size: 10px;
+  flex-shrink: 0;
+}
 .branch-pill .pname {
   overflow: hidden;
   text-overflow: ellipsis;
