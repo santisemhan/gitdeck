@@ -61,8 +61,8 @@ export function CommitGraph({
   }, [commits]);
 
   const minWidths = useMemo(
-    () => ({ labels: 140, graph: 44 }),
-    []
+    () => ({ labels: 140, graph: requiredGraphWidth }),
+    [requiredGraphWidth]
   );
 
   const startResize = useCallback(
