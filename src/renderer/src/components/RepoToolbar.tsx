@@ -49,6 +49,7 @@ interface RepoToolbarProps {
   currentBranch: string;
   statusAhead: number;
   statusBehind: number;
+  stashCount: number;
   localBranches: LocalBranch[];
   remoteBranches: RemoteBranch[];
   currentBranchId?: string;
@@ -63,6 +64,8 @@ interface RepoToolbarProps {
   onPull: () => void;
   onPush: () => void;
   onCreateBranch: () => void;
+  onStash: () => void;
+  onPop: () => void;
 }
 
 export function RepoToolbar(props: RepoToolbarProps) {
@@ -119,8 +122,14 @@ export function RepoToolbar(props: RepoToolbarProps) {
         <ToolbarAction icon={<IconCloudArrowDown size={16} />} label="Pull" badge={props.statusBehind} onClick={props.onPull} />
         <ToolbarAction icon={<IconCloudArrowUp size={16} />} label="Push" badge={props.statusAhead} onClick={props.onPush} />
         <ToolbarAction icon={<IconBranch size={16} />} label="Branch" onClick={props.onCreateBranch} />
-        <ToolbarAction icon={<IconArchiveDown size={16} />} label="Stash" disabled />
-        <ToolbarAction icon={<IconArchiveUp size={16} />} label="Pop" disabled />
+        <ToolbarAction icon={<IconArchiveDown size={16} />} label="Stash" onClick={props.onStash} />
+        <ToolbarAction
+          icon={<IconArchiveUp size={16} />}
+          label="Pop"
+          badge={props.stashCount}
+          disabled={props.stashCount === 0}
+          onClick={props.onPop}
+        />
         <div className="divider divider-compact" />
         <ToolbarAction icon={<IconTerminal size={16} />} label="Terminal" disabled />
         <div className="divider divider-compact" />

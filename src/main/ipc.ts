@@ -108,6 +108,11 @@ export function registerIpcHandlers() {
   ipcMain.handle(Channels.cherryPick, (_e, repoPath: string, hash: string) => gitService.cherryPick(repoPath, hash));
   ipcMain.handle(Channels.continueCherryPick, (_e, repoPath: string) => gitService.continueCherryPick(repoPath));
   ipcMain.handle(Channels.abortCherryPick, (_e, repoPath: string) => gitService.abortCherryPick(repoPath));
+  ipcMain.handle(Channels.stashList, (_e, repoPath: string) => gitService.listStashes(repoPath));
+  ipcMain.handle(Channels.stashPush, (_e, repoPath: string, message: string) => gitService.stashPush(repoPath, message));
+  ipcMain.handle(Channels.stashPop, (_e, repoPath: string, index: number) => gitService.stashPop(repoPath, index));
+  ipcMain.handle(Channels.stashApply, (_e, repoPath: string, index: number) => gitService.stashApply(repoPath, index));
+  ipcMain.handle(Channels.stashDrop, (_e, repoPath: string, index: number) => gitService.stashDrop(repoPath, index));
 
   ipcMain.handle(Channels.isVSCodeAvailable, () => editorService.isVSCodeAvailable());
   ipcMain.handle(Channels.openFileInVSCode, (_e, filePath: string) => editorService.openFileInVSCode(filePath));

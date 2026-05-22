@@ -5,6 +5,7 @@ import type {
   GitDiff,
   GitSplitContent,
   GitOperationResult,
+  GitStashEntry,
   RepoChangeEvent,
   GitStatus,
   Repository,
@@ -99,6 +100,21 @@ export const gitClient = {
   },
   renameBranch(repoPath: string, oldName: string, newName: string): Promise<GitOperationResult> {
     return api().renameBranch(repoPath, oldName, newName);
+  },
+  stashList(repoPath: string): Promise<GitStashEntry[]> {
+    return api().stashList(repoPath);
+  },
+  stashPush(repoPath: string, message: string): Promise<GitOperationResult> {
+    return api().stashPush(repoPath, message);
+  },
+  stashPop(repoPath: string, index: number): Promise<GitOperationResult> {
+    return api().stashPop(repoPath, index);
+  },
+  stashApply(repoPath: string, index: number): Promise<GitOperationResult> {
+    return api().stashApply(repoPath, index);
+  },
+  stashDrop(repoPath: string, index: number): Promise<GitOperationResult> {
+    return api().stashDrop(repoPath, index);
   },
   watchRepository(repoPath: string): Promise<WatchOperationResult> {
     return api().watchRepository(repoPath);

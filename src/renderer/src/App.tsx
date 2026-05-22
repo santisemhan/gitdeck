@@ -85,7 +85,7 @@ function RepoView({
   onCloseAll
 }: RepoViewProps) {
   const data = useRepoData(repoPath);
-  const { status, history, branches } = data.data;
+  const { status, history, branches, stashes } = data.data;
 
   const [mainView, setMainView] = useState<MainView>("graph");
   const [rightPanelMode, setRightPanelMode] = useState<RightPanelMode>("localChanges");
@@ -129,8 +129,14 @@ function RepoView({
   );
 
   const commits = useMemo(
-    () => toCommits(history, { unstagedCount: unstaged.length, stagedCount: staged.length, currentBranch }),
-    [history, unstaged.length, staged.length, currentBranch]
+    () =>
+      toCommits(history, {
+        unstagedCount: unstaged.length,
+        stagedCount: staged.length,
+        currentBranch,
+        stashes
+      }),
+    [history, unstaged.length, staged.length, currentBranch, stashes]
   );
 
   const allBranches = useMemo(
@@ -469,6 +475,31 @@ function RepoView({
     await data.renameBranch(oldName, newName);
   }, [data]);
 
+  const handleStash = useCallback(async () => {
+    const message = currentBranch && currentBranch !== "—" ? currentBranch : "stash";
+    await data.stashPush(message);
+  }, [currentBranch, data]);
+
+  const handleToolbarPop = useCallback(async () => {
+    if (stashes.length === 0) {
+      toast.error("No stashes to pop");
+      return;
+    }
+    await data.stashPop(stashes[0].index);
+  }, [data, stashes]);
+
+  const handleStashPop = useCallback(async (index: number) => {
+    await data.stashPop(index);
+  }, [data]);
+
+  const handleStashApply = useCallback(async (index: number) => {
+    await data.stashApply(index);
+  }, [data]);
+
+  const handleStashDrop = useCallback(async (index: number) => {
+    await data.stashDrop(index);
+  }, [data]);
+
   const handleEditFile = useCallback(
     async (file: ChangedFile) => {
       const fullPath = `${repoPath}/${file.path}`.replace(/\\/g, "/");
@@ -599,6 +630,7 @@ function RepoView({
           currentBranch={currentBranch}
           statusAhead={status?.ahead || 0}
           statusBehind={status?.behind || 0}
+          stashCount={stashes.length}
           localBranches={localBranches}
           remoteBranches={remoteBranches}
           currentBranchId={currentBranchId}
@@ -613,6 +645,8 @@ function RepoView({
           onPull={() => void data.pull()}
           onPush={() => void data.push()}
           onCreateBranch={() => void handleCreateBranch()}
+          onStash={() => void handleStash()}
+          onPop={() => void handleToolbarPop()}
         />
       </div>
 
@@ -635,6 +669,9 @@ function RepoView({
             onCreateBranchFrom={(refName) => void handleCreateBranchFrom(refName)}
             onDeleteBranch={(refName) => void handleDeleteBranch(refName)}
             onRequestRenameBranch={handleRequestRenameBranch}
+            onStashPop={(index) => void handleStashPop(index)}
+            onStashApply={(index) => void handleStashApply(index)}
+            onStashDrop={(index) => void handleStashDrop(index)}
           />
           {mainView === "filePreview" && selectedFile && (
             <DiffPreviewWorkspace

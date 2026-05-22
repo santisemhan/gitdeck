@@ -32,6 +32,9 @@ export interface Commit {
   lane: number;
   isWip?: boolean;
   isMerge?: boolean;
+  isStash?: boolean;
+  stashIndex?: number;
+  stashMessage?: string;
   additions?: number;
 }
 

@@ -6,6 +6,7 @@ import type {
   GitDiff,
   GitSplitContent,
   GitOperationResult,
+  GitStashEntry,
   GitStatus,
   Repository,
   WatchOperationResult
@@ -40,6 +41,11 @@ declare global {
       cherryPick(repoPath: string, commitHash: string): Promise<GitOperationResult>;
       continueCherryPick(repoPath: string): Promise<GitOperationResult>;
       abortCherryPick(repoPath: string): Promise<GitOperationResult>;
+      stashList(repoPath: string): Promise<GitStashEntry[]>;
+      stashPush(repoPath: string, message: string): Promise<GitOperationResult>;
+      stashPop(repoPath: string, index: number): Promise<GitOperationResult>;
+      stashApply(repoPath: string, index: number): Promise<GitOperationResult>;
+      stashDrop(repoPath: string, index: number): Promise<GitOperationResult>;
       watchRepository(repoPath: string): Promise<WatchOperationResult>;
       unwatchRepository(): Promise<WatchOperationResult>;
       onRepositoryChanged(listener: (event: RepoChangeEvent) => void): () => void;

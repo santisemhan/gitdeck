@@ -8,6 +8,7 @@ import {
   GitFileChange,
   GitOperationResult,
   GitSplitContent,
+  GitStashEntry,
   GitStatus
 } from "../../shared/types";
 import { parseHistory, historyFormat } from "../parsers/historyParser";
@@ -481,6 +482,82 @@ export class GitService {
   async abortCherryPick(repoPath: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["cherry-pick", "--abort"]);
     if (result.code !== 0) return fail(result, "Cherry-pick abort failed");
+    return ok(result);
+  }
+
+  async listStashes(repoPath: string): Promise<GitStashEntry[]> {
+    const SEP = "\x1f";
+    const REC = "\x1e";
+    const result = await runGit(repoPath, [
+      "stash",
+      "list",
+      `--format=%H${SEP}%P${SEP}%gd${SEP}%cI${SEP}%gs${REC}`
+    ]);
+    if (result.code !== 0) return [];
+    const raw = result.stdout;
+    if (!raw.trim()) return [];
+
+    const entries: GitStashEntry[] = [];
+    const records = raw.split(REC).map((r) => r.replace(/^\r?\n/, "")).filter((r) => r.length > 0);
+    for (const record of records) {
+      const fields = record.split(SEP);
+      if (fields.length < 5) continue;
+      const [hash, parentList, gd, date, subject] = fields;
+      const parentHash = (parentList || "").trim().split(/\s+/).filter(Boolean)[0] || "";
+      if (!hash || !parentHash) continue;
+
+      const indexMatch = gd.match(/stash@\{(\d+)\}/);
+      const index = indexMatch ? Number(indexMatch[1]) : entries.length;
+
+      const subjectMatch = subject.match(/^(?:WIP )?[oO]n (.+?):\s?(.*)$/);
+      const branch = subjectMatch ? subjectMatch[1] : "";
+      const message = subjectMatch ? subjectMatch[2] : subject;
+
+      entries.push({
+        index,
+        hash: hash.trim(),
+        parentHash,
+        message: message.trim(),
+        branch,
+        dateISO: date.trim()
+      });
+    }
+    return entries;
+  }
+
+  async stashPush(repoPath: string, message: string): Promise<GitOperationResult> {
+    if (!message.trim()) {
+      return { ok: false, code: 1, stdout: "", stderr: "", message: "Stash message cannot be empty." };
+    }
+    const result = await runGit(repoPath, ["stash", "push", "-u", "-m", message]);
+    if (result.code !== 0) return fail(result, "Stash failed");
+    const lower = (result.stdout + result.stderr).toLowerCase();
+    if (lower.includes("no local changes to save")) {
+      return { ok: false, code: 1, stdout: result.stdout, stderr: result.stderr, message: "No local changes to stash." };
+    }
+    return ok(result);
+  }
+
+  async stashPop(repoPath: string, index: number): Promise<GitOperationResult> {
+    const result = await runGit(repoPath, ["stash", "pop", "--index", `stash@{${index}}`]);
+    if (result.code !== 0) {
+      const fallback = result.stderr.toLowerCase().includes("conflict")
+        ? "Stash pop produced conflicts. Resolve them and the stash entry was kept."
+        : "Stash pop failed";
+      return fail(result, fallback);
+    }
+    return ok(result);
+  }
+
+  async stashApply(repoPath: string, index: number): Promise<GitOperationResult> {
+    const result = await runGit(repoPath, ["stash", "apply", "--index", `stash@{${index}}`]);
+    if (result.code !== 0) return fail(result, "Stash apply failed");
+    return ok(result);
+  }
+
+  async stashDrop(repoPath: string, index: number): Promise<GitOperationResult> {
+    const result = await runGit(repoPath, ["stash", "drop", `stash@{${index}}`]);
+    if (result.code !== 0) return fail(result, "Stash drop failed");
     return ok(result);
   }
 
