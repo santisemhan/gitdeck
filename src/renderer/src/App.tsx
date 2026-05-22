@@ -476,9 +476,10 @@ function RepoView({
   }, [data]);
 
   const handleStash = useCallback(async () => {
-    const message = currentBranch && currentBranch !== "—" ? currentBranch : "stash";
+    const base = currentBranch && currentBranch !== "—" ? currentBranch : "stash";
+    const message = `#${stashes.length + 1} ${base}`;
     await data.stashPush(message);
-  }, [currentBranch, data]);
+  }, [currentBranch, data, stashes.length]);
 
   const handleToolbarPop = useCallback(async () => {
     if (stashes.length === 0) {
