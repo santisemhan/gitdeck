@@ -103,8 +103,6 @@ function RepoView({
   const [renameBranchOldName, setRenameBranchOldName] = useState<string | null>(null);
   const [renameBranchInput, setRenameBranchInput] = useState("");
   const [showRenameBranchBanner, setShowRenameBranchBanner] = useState(false);
-  const [showStashBanner, setShowStashBanner] = useState(false);
-  const [stashMessageInput, setStashMessageInput] = useState("");
   const branchMenuRef = useRef<HTMLDivElement | null>(null);
 
   const { unstaged, staged } = useMemo(
@@ -304,19 +302,18 @@ function RepoView({
   }, [staged.length, unstaged.length]);
 
   useEffect(() => {
-    if (!showCreateBranchBanner && !showRenameBranchBanner && !showStashBanner) return;
+    if (!showCreateBranchBanner && !showRenameBranchBanner) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setShowCreateBranchBanner(false);
         setShowRenameBranchBanner(false);
-        setShowStashBanner(false);
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [showCreateBranchBanner, showRenameBranchBanner, showStashBanner]);
+  }, [showCreateBranchBanner, showRenameBranchBanner]);
 
   const handleCommit = useCallback(
     async (summary: string, description: string) => {
@@ -478,23 +475,10 @@ function RepoView({
     await data.renameBranch(oldName, newName);
   }, [data]);
 
-  const handleOpenStashBanner = useCallback(() => {
-    setStashMessageInput(currentBranch && currentBranch !== "—" ? currentBranch : "");
-    setShowStashBanner(true);
-  }, [currentBranch]);
-
-  const handleSubmitStash = useCallback(async () => {
-    const message = stashMessageInput.trim();
-    if (!message) {
-      toast.error("Stash message is required");
-      return;
-    }
-    const created = await data.stashPush(message);
-    if (created) {
-      setShowStashBanner(false);
-      setStashMessageInput("");
-    }
-  }, [data, stashMessageInput]);
+  const handleStash = useCallback(async () => {
+    const message = currentBranch && currentBranch !== "—" ? currentBranch : "stash";
+    await data.stashPush(message);
+  }, [currentBranch, data]);
 
   const handleToolbarPop = useCallback(async () => {
     if (stashes.length === 0) {
@@ -641,41 +625,6 @@ function RepoView({
           </form>
         )}
 
-        {showStashBanner && (
-          <form
-            className="create-branch-banner"
-            role="dialog"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void handleSubmitStash();
-            }}
-          >
-            <span className="create-branch-banner-text">Stash current changes</span>
-            <input
-              className="create-branch-input"
-              value={stashMessageInput}
-              onChange={(event) => setStashMessageInput(event.target.value)}
-              placeholder="WIP message"
-              autoFocus
-            />
-            <div className="create-branch-actions">
-              <button className="create-branch-btn primary" type="submit">
-                Stash
-              </button>
-              <button
-                className="create-branch-btn"
-                type="button"
-                onClick={() => {
-                  setShowStashBanner(false);
-                  setStashMessageInput("");
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-
         <RepoToolbar
           repoName={repoName}
           currentBranch={currentBranch}
@@ -696,7 +645,7 @@ function RepoView({
           onPull={() => void data.pull()}
           onPush={() => void data.push()}
           onCreateBranch={() => void handleCreateBranch()}
-          onStash={handleOpenStashBanner}
+          onStash={() => void handleStash()}
           onPop={() => void handleToolbarPop()}
         />
       </div>
