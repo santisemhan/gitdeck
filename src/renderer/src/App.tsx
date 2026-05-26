@@ -3,6 +3,7 @@ import { Toaster, toast } from "sonner";
 import { BranchSidebar } from "./components/BranchSidebar";
 import { CommitGraph } from "./components/CommitGraph";
 import { DiffPreviewWorkspace } from "./components/DiffPreviewWorkspace";
+import { FileHistoryWorkspace } from "./components/FileHistoryWorkspace";
 import { RepoStatusBar } from "./components/RepoStatusBar";
 import { RepoTabBar } from "./components/RepoTabBar";
 import { RepoToolbar } from "./components/RepoToolbar";
@@ -103,6 +104,7 @@ function RepoView({
   const [renameBranchOldName, setRenameBranchOldName] = useState<string | null>(null);
   const [renameBranchInput, setRenameBranchInput] = useState("");
   const [showRenameBranchBanner, setShowRenameBranchBanner] = useState(false);
+  const [fileHistoryPath, setFileHistoryPath] = useState<string | null>(null);
   const branchMenuRef = useRef<HTMLDivElement | null>(null);
 
   const { unstaged, staged } = useMemo(
@@ -235,6 +237,14 @@ function RepoView({
     setMainView("graph");
   }, []);
 
+  const handleOpenFileHistory = useCallback((file: ChangedFile) => {
+    setFileHistoryPath(file.path);
+  }, []);
+
+  const handleCloseFileHistory = useCallback(() => {
+    setFileHistoryPath(null);
+  }, []);
+
   const handleSelectFile = useCallback(
     (file: ChangedFile) => {
       if (rightPanelMode === "commitDetails") {
@@ -314,6 +324,17 @@ function RepoView({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [showCreateBranchBanner, showRenameBranchBanner]);
+
+  useEffect(() => {
+    if (!fileHistoryPath) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setFileHistoryPath(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [fileHistoryPath]);
 
   const handleCommit = useCallback(
     async (summary: string, description: string) => {
@@ -652,65 +673,79 @@ function RepoView({
       </div>
 
       <div className="workarea">
-        <BranchSidebar
-          localBranches={localBranches}
-          remoteBranches={remoteBranches}
-          currentBranchId={currentBranchId}
-          onSelectBranch={handleSelectBranch}
-          onCheckoutBranch={handleCheckoutBranch}
-        />
-
-        <div className="center">
-          <CommitGraph
-            commits={commits}
-            selectedCommitId={selectedCommit?.id}
-            onSelectCommit={handleSelectCommit}
-            onSelectWip={handleSelectWip}
-            onCheckoutRef={(refName) => void handleCheckoutRef(refName)}
-            onCreateBranchFrom={(refName) => void handleCreateBranchFrom(refName)}
-            onDeleteBranch={(refName) => void handleDeleteBranch(refName)}
-            onRequestRenameBranch={handleRequestRenameBranch}
-            onStashPop={(index) => void handleStashPop(index)}
-            onStashApply={(index) => void handleStashApply(index)}
-            onStashDrop={(index) => void handleStashDrop(index)}
-            onCherryPick={(hash) => void data.cherryPick(hash)}
-            onRevertCommit={(hash) => void data.revertCommit(hash)}
+        {fileHistoryPath ? (
+          <FileHistoryWorkspace
+            repoPath={repoPath}
+            filePath={fileHistoryPath}
+            diffMode={diffMode}
+            onChangeDiffMode={setDiffMode}
+            onClose={handleCloseFileHistory}
           />
-          {mainView === "filePreview" && selectedFile && (
-            <DiffPreviewWorkspace
-              key={`${selectedFile.id}-${selectedCommit?.id || "wip"}`}
+        ) : (
+          <>
+            <BranchSidebar
+              localBranches={localBranches}
+              remoteBranches={remoteBranches}
+              currentBranchId={currentBranchId}
+              onSelectBranch={handleSelectBranch}
+              onCheckoutBranch={handleCheckoutBranch}
+            />
+
+            <div className="center">
+              <CommitGraph
+                commits={commits}
+                selectedCommitId={selectedCommit?.id}
+                onSelectCommit={handleSelectCommit}
+                onSelectWip={handleSelectWip}
+                onCheckoutRef={(refName) => void handleCheckoutRef(refName)}
+                onCreateBranchFrom={(refName) => void handleCreateBranchFrom(refName)}
+                onDeleteBranch={(refName) => void handleDeleteBranch(refName)}
+                onRequestRenameBranch={handleRequestRenameBranch}
+                onStashPop={(index) => void handleStashPop(index)}
+                onStashApply={(index) => void handleStashApply(index)}
+                onStashDrop={(index) => void handleStashDrop(index)}
+                onCherryPick={(hash) => void data.cherryPick(hash)}
+                onRevertCommit={(hash) => void data.revertCommit(hash)}
+              />
+              {mainView === "filePreview" && selectedFile && (
+                <DiffPreviewWorkspace
+                  key={`${selectedFile.id}-${selectedCommit?.id || "wip"}`}
+                  repoPath={repoPath}
+                  file={selectedFile}
+                  source={selectedFileSource}
+                  commitHash={selectedFileSource === "commit" ? selectedCommit?.id : undefined}
+                  diffMode={diffMode}
+                  onChangeDiffMode={setDiffMode}
+                  onClose={handleCloseDiff}
+                  onStageFile={handleStageFile}
+                  onUnstageFile={handleUnstageFile}
+                  onEditFile={handleEditFile}
+                  onShowHistory={() => handleOpenFileHistory(selectedFile)}
+                />
+              )}
+            </div>
+
+            <RightPanel
               repoPath={repoPath}
-              file={selectedFile}
-              source={selectedFileSource}
-              commitHash={selectedFileSource === "commit" ? selectedCommit?.id : undefined}
-              diffMode={diffMode}
-              onChangeDiffMode={setDiffMode}
-              onClose={handleCloseDiff}
+              mode={rightPanelMode}
+              selectedCommit={selectedCommit}
+              commitFiles={commitFiles}
+              selectedFileId={selectedFile?.id}
+              unstagedFiles={unstaged}
+              stagedFiles={staged}
+              currentBranch={currentBranch}
+              totalLocalChanges={totalLocalChanges}
+              onSelectFile={handleSelectFile}
               onStageFile={handleStageFile}
               onUnstageFile={handleUnstageFile}
-              onEditFile={handleEditFile}
+              onStageAll={handleStageAll}
+              onUnstageAll={handleUnstageAll}
+              onRequestDiscardAll={() => setShowDiscardAllBanner(true)}
+              onCommit={handleCommit}
+              onViewLocalChanges={handleViewLocalChanges}
             />
-          )}
-        </div>
-
-        <RightPanel
-          mode={rightPanelMode}
-          selectedCommit={selectedCommit}
-          commitFiles={commitFiles}
-          selectedFileId={selectedFile?.id}
-          unstagedFiles={unstaged}
-          stagedFiles={staged}
-          currentBranch={currentBranch}
-          totalLocalChanges={totalLocalChanges}
-          onSelectFile={handleSelectFile}
-          onStageFile={handleStageFile}
-          onUnstageFile={handleUnstageFile}
-          onStageAll={handleStageAll}
-          onUnstageAll={handleUnstageAll}
-          onRequestDiscardAll={() => setShowDiscardAllBanner(true)}
-          onCommit={handleCommit}
-          onViewLocalChanges={handleViewLocalChanges}
-        />
+          </>
+        )}
       </div>
 
       <RepoStatusBar

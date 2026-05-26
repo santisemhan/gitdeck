@@ -3,8 +3,6 @@ import type { LocalBranch, RemoteBranch } from "../data/types";
 import {
   IconArchiveDown,
   IconArchiveUp,
-  IconArrowClockwise,
-  IconArrowCounterclockwise,
   IconBranch,
   IconCaretDown,
   IconCloudArrowDown,
@@ -117,8 +115,6 @@ export function RepoToolbar(props: RepoToolbarProps) {
         )}
       </div>
       <div className="actions">
-        <ToolbarAction icon={<IconArrowCounterclockwise size={16} />} label="Undo" disabled />
-        <ToolbarAction icon={<IconArrowClockwise size={16} />} label="Redo" disabled />
         <ToolbarAction icon={<IconCloudArrowDown size={16} />} label="Pull" badge={props.statusBehind} onClick={props.onPull} />
         <ToolbarAction icon={<IconCloudArrowUp size={16} />} label="Push" badge={props.statusAhead} onClick={props.onPush} />
         <ToolbarAction icon={<IconBranch size={16} />} label="Branch" onClick={props.onCreateBranch} />

@@ -1,6 +1,7 @@
 import type {
   CommitDetails,
   EditorOperationResult,
+  FileHistoryEntry,
   RepoChangeEvent,
   GitBranch,
   GitDiff,
@@ -26,6 +27,7 @@ declare global {
       discardAll(repoPath: string): Promise<GitOperationResult>;
       commit(repoPath: string, message: string): Promise<GitOperationResult>;
       getHistory(repoPath: string): Promise<any[]>;
+      getFileHistory(repoPath: string, filePath: string, opts?: { limit?: number; skip?: number }): Promise<FileHistoryEntry[]>;
       getCommitDetails(repoPath: string, commitHash: string): Promise<CommitDetails>;
       getCommitFileDiff(repoPath: string, commitHash: string, filePath: string): Promise<GitDiff>;
       getFileContent(repoPath: string, filePath: string, source: string, commitHash?: string): Promise<{ text: string; isBinary: boolean }>;

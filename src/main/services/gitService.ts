@@ -247,6 +247,31 @@ export class GitService {
     return parseHistory(result.stdout);
   }
 
+  async getFileHistory(
+    repoPath: string,
+    filePath: string,
+    opts?: { limit?: number; skip?: number }
+  ): Promise<import("../../shared/types").FileHistoryEntry[]> {
+    const limit = opts?.limit ?? 100;
+    const skip = opts?.skip ?? 0;
+    const result = await runGit(repoPath, [
+      "log",
+      "--follow",
+      "--date=iso-strict",
+      "--decorate=full",
+      `--format=${historyFormat}`,
+      "-n",
+      String(limit),
+      "--skip",
+      String(skip),
+      "--",
+      filePath,
+    ]);
+    if (result.code !== 0) throw new Error(result.stderr || "Unable to get file history");
+
+    return parseHistory(result.stdout).map((commit) => ({ commit, pathAtCommit: filePath }));
+  }
+
   async getCommitFileDiff(repoPath: string, commitHash: string, filePath: string): Promise<GitDiff> {
     const result = await runGit(repoPath, ["show", commitHash, "--format=", "--", filePath]);
     if (result.code !== 0) throw new Error(result.stderr || "Unable to get commit diff");

@@ -6,13 +6,10 @@ import { gitClient } from "../services/gitClient";
 import { buildSplitRows, parseUnifiedDiff, tokenize, type DiffHunk, type SplitDiffRow } from "../utils/diff";
 import { FileStatusIcon } from "./FileStatusIcon";
 import {
-  IconArrowDown,
-  IconArrowUp,
   IconEye,
   IconHistory,
   IconInline,
   IconSplit,
-  IconWrap,
   IconX,
 } from "./icons";
 import { SegmentedControl } from "./SegmentedControl";
@@ -28,6 +25,9 @@ interface DiffPreviewWorkspaceProps {
   onStageFile?: (file: ChangedFile) => void;
   onUnstageFile?: (file: ChangedFile) => void;
   onEditFile?: (file: ChangedFile) => void;
+  onShowHistory?: () => void;
+  /** When true the history button in the toolbar is hidden (e.g. already inside FileHistoryWorkspace) */
+  hideHistoryButton?: boolean;
 }
 
 export function DiffPreviewWorkspace({
@@ -41,6 +41,8 @@ export function DiffPreviewWorkspace({
   onStageFile,
   onUnstageFile,
   onEditFile,
+  onShowHistory,
+  hideHistoryButton,
 }: DiffPreviewWorkspaceProps) {
   const [hunks, setHunks] = useState<DiffHunk[]>([]);
   const [loading, setLoading] = useState(true);
@@ -202,6 +204,8 @@ export function DiffPreviewWorkspace({
         onChangeDiffMode={onChangeDiffMode}
         onChangeViewMode={setViewMode}
         onEditFile={onEditFile ? () => onEditFile(file) : undefined}
+        onShowHistory={onShowHistory}
+        hideHistoryButton={hideHistoryButton}
       />
       {viewMode === "file" ? (
         fileLoading ? (
@@ -294,9 +298,11 @@ interface DiffToolbarProps {
   onChangeDiffMode: (mode: DiffMode) => void;
   onChangeViewMode: (mode: "diff" | "file") => void;
   onEditFile?: () => void;
+  onShowHistory?: () => void;
+  hideHistoryButton?: boolean;
 }
 
-function DiffToolbar({ source, diffMode, viewMode, onChangeDiffMode, onChangeViewMode, onEditFile }: DiffToolbarProps) {
+function DiffToolbar({ source, diffMode, viewMode, onChangeDiffMode, onChangeViewMode, onEditFile, onShowHistory, hideHistoryButton }: DiffToolbarProps) {
   return (
     <div className="diff-toolbar">
       {(source === "unstaged" || source === "staged") && (
@@ -326,24 +332,12 @@ function DiffToolbar({ source, diffMode, viewMode, onChangeDiffMode, onChangeVie
             { value: "diff", label: "Diff View", icon: <IconSplit size={12} /> },
           ]}
         />
-        {viewMode === "diff" && (
-          <>
-            <div className="vert-divider" />
-            <button className="nav-btn" title="Previous change">
-              <IconArrowUp size={13} />
-            </button>
-            <button className="nav-btn" title="Next change">
-              <IconArrowDown size={13} />
-            </button>
-          </>
-        )}
         <div className="vert-divider" />
-        <button className="nav-btn" title="Word wrap">
-          <IconWrap size={13} />
-        </button>
-        <button className="nav-btn" title="Blame">
-          <IconHistory size={13} />
-        </button>
+        {!hideHistoryButton && (
+          <button className="nav-btn" title="File history" onClick={onShowHistory}>
+            <IconHistory size={13} />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -535,7 +529,10 @@ function FileViewer({ text }: { text: string }) {
       {lines.map((line, i) => (
         <div key={i} className="dline ctx">
           <div className="ln">{i + 1}</div>
-          <div className="code">{line || " "}</div>
+          <div
+            className="code"
+            dangerouslySetInnerHTML={{ __html: line ? tokenize(line) : "&nbsp;" }}
+          />
         </div>
       ))}
     </div>

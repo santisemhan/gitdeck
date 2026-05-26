@@ -4,5 +4,6 @@
 @import "./styles/center-graph.css";
 @import "./styles/right-panel.css";
 @import "./styles/diff-workspace.css";
+@import "./styles/file-history.css";
 @import "./styles/shared-ui.css";
 @import "./styles/launcher.css";
