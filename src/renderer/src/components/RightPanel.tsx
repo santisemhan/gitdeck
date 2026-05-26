@@ -8,7 +8,7 @@ import {
   IconTrash,
 } from "./icons";
 import { PanelSection } from "./PanelSection";
-import { getCommitDraftStorageKeys } from "../constants/storageKeys";
+import { getCommitDraftStorageKeys, STORAGE_KEYS } from "../constants/storageKeys";
 
 function readDraftValue(key: string): string {
   try {
@@ -25,6 +25,24 @@ function writeDraftValue(key: string, value: string): void {
       return;
     }
     localStorage.removeItem(key);
+  } catch {
+  }
+}
+
+function readStoredNumber(key: string, fallback: number): number {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredNumber(key: string, value: number): void {
+  try {
+    localStorage.setItem(key, String(value));
   } catch {
   }
 }
@@ -194,8 +212,12 @@ function LocalChangesPanel({
   const totalCount = unstagedFiles.length + stagedFiles.length;
   const [unstagedOpen, setUnstagedOpen] = useState(true);
   const [stagedOpen, setStagedOpen] = useState(true);
-  const [commitHeight, setCommitHeight] = useState(250);
-  const [unstagedHeight, setUnstagedHeight] = useState(250);
+  const [commitHeight, setCommitHeight] = useState(() =>
+    Math.max(minCommitHeight, readStoredNumber(STORAGE_KEYS.rightPanelCommitHeight, 250))
+  );
+  const [unstagedHeight, setUnstagedHeight] = useState(() =>
+    Math.max(minSectionHeight, readStoredNumber(STORAGE_KEYS.rightPanelUnstagedHeight, 250))
+  );
   const filesListRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<{
     startY: number;
@@ -287,6 +309,13 @@ function LocalChangesPanel({
 
   useEffect(() => stopResize, [stopResize]);
   useEffect(() => stopCommitResize, [stopCommitResize]);
+  useEffect(() => {
+    writeStoredNumber(STORAGE_KEYS.rightPanelUnstagedHeight, unstagedHeight);
+  }, [unstagedHeight]);
+  useEffect(() => {
+    writeStoredNumber(STORAGE_KEYS.rightPanelCommitHeight, commitHeight);
+  }, [commitHeight]);
+
   const unstagedSectionStyle = unstagedOpen
     ? {
         flex: stagedOpen ? `0 0 ${unstagedHeight}px` : "1 1 auto",

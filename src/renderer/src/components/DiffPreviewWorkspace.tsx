@@ -21,7 +21,7 @@ interface DiffPreviewWorkspaceProps {
   commitHash?: string;
   diffMode: DiffMode;
   onChangeDiffMode: (mode: DiffMode) => void;
-  onClose: () => void;
+  onClose?: () => void;
   onStageFile?: (file: ChangedFile) => void;
   onUnstageFile?: (file: ChangedFile) => void;
   onEditFile?: (file: ChangedFile) => void;
@@ -138,7 +138,7 @@ export function DiffPreviewWorkspace({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onClose?.();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -255,7 +255,7 @@ function DiffPlaceholder({ children }: { children: React.ReactNode }) {
 interface DiffHeaderProps {
   file: ChangedFile;
   source: SelectedFileSource | null;
-  onClose: () => void;
+  onClose?: () => void;
   onStageFile?: (file: ChangedFile) => void;
   onUnstageFile?: (file: ChangedFile) => void;
 }
@@ -284,9 +284,11 @@ function DiffHeader({ file, source, onClose, onStageFile, onUnstageFile }: DiffH
           </button>
         </div>
       )}
-      <button className="x" onClick={onClose} title="Close diff (Esc)">
-        <IconX size={14} />
-      </button>
+      {onClose && (
+        <button className="x" onClick={onClose} title="Close diff (Esc)">
+          <IconX size={14} />
+        </button>
+      )}
     </div>
   );
 }

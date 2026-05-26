@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { LocalBranch, RemoteBranch } from "../data/types";
 import {
   IconArrowDown,
@@ -17,6 +17,9 @@ interface BranchSidebarProps {
   currentBranchId: string;
   onSelectBranch: (branch: LocalBranch | RemoteBranch) => void;
   onCheckoutBranch: (branch: LocalBranch | RemoteBranch) => void;
+  onCreateBranchFrom?: (refName: string) => void;
+  onDeleteBranch?: (refName: string) => void;
+  onRequestRenameBranch?: (name: string) => void;
 }
 
 type SectionKey = "LOCAL" | "REMOTE" | "WORKTREES" | "CLOUD PATCHES" | "PULL REQUESTS" | "ISSUES" | "TEAMS";
@@ -27,6 +30,9 @@ export function BranchSidebar({
   currentBranchId,
   onSelectBranch,
   onCheckoutBranch,
+  onCreateBranchFrom,
+  onDeleteBranch,
+  onRequestRenameBranch,
 }: BranchSidebarProps) {
   const [collapsed, setCollapsed] = useState<Record<SectionKey, boolean>>({
     LOCAL: false,
@@ -39,6 +45,27 @@ export function BranchSidebar({
   });
   const [folderCollapsed, setFolderCollapsed] = useState<Record<string, boolean>>({});
   const [filter, setFilter] = useState("");
+  const [branchCtxMenu, setBranchCtxMenu] = useState<{
+    x: number;
+    y: number;
+    refName: string;
+    isCurrent: boolean;
+    isRemote: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!branchCtxMenu) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      setBranchCtxMenu(null);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [branchCtxMenu]);
 
   const toggleSection = (k: SectionKey) =>
     setCollapsed((s) => ({ ...s, [k]: !s[k] }));
@@ -114,6 +141,17 @@ export function BranchSidebar({
         className={"branch-row" + (isCurrent ? " current" : "") + (indentClass ? ` ${indentClass}` : "")}
         onClick={() => onSelectBranch(b)}
         onDoubleClick={() => onCheckoutBranch(b)}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setBranchCtxMenu({
+            x: event.clientX,
+            y: event.clientY,
+            refName: b.name,
+            isCurrent,
+            isRemote: false,
+          });
+        }}
         title={b.name}
       >
         {isCurrent ? (
@@ -214,6 +252,17 @@ export function BranchSidebar({
                               className="branch-row indent-40"
                               onClick={() => onSelectBranch(c)}
                               onDoubleClick={() => onCheckoutBranch(c)}
+                              onContextMenu={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setBranchCtxMenu({
+                                  x: event.clientX,
+                                  y: event.clientY,
+                                  refName: c.name,
+                                  isCurrent: false,
+                                  isRemote: true,
+                                });
+                              }}
                             >
                               <IconBranch size={13} className="icon" />
                               <span className="name">{c.name}</span>
@@ -228,6 +277,17 @@ export function BranchSidebar({
                       className="branch-row indent-22"
                       onClick={() => onSelectBranch(b)}
                       onDoubleClick={() => onCheckoutBranch(b)}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setBranchCtxMenu({
+                          x: event.clientX,
+                          y: event.clientY,
+                          refName: b.name,
+                          isCurrent: false,
+                          isRemote: true,
+                        });
+                      }}
                     >
                       <IconBranch size={13} className="icon" />
                       <span className="name">{b.name}</span>
@@ -239,6 +299,55 @@ export function BranchSidebar({
           )}
         </div>
       </div>
+
+      {branchCtxMenu && (
+        <div
+          className="ctx-menu"
+          style={{ left: branchCtxMenu.x, top: branchCtxMenu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+          role="menu"
+        >
+          <button
+            type="button"
+            className="ctx-menu-item"
+            role="menuitem"
+            onClick={() => {
+              onCreateBranchFrom?.(branchCtxMenu.refName);
+              setBranchCtxMenu(null);
+            }}
+          >
+            New branch from here
+          </button>
+          {!branchCtxMenu.isRemote && (
+            <>
+              <button
+                type="button"
+                className="ctx-menu-item"
+                role="menuitem"
+                onClick={() => {
+                  onRequestRenameBranch?.(branchCtxMenu.refName);
+                  setBranchCtxMenu(null);
+                }}
+              >
+                Rename
+              </button>
+              <button
+                type="button"
+                className="ctx-menu-item ctx-menu-item-danger"
+                role="menuitem"
+                disabled={branchCtxMenu.isCurrent}
+                title={branchCtxMenu.isCurrent ? "Cannot delete the current branch" : undefined}
+                onClick={() => {
+                  onDeleteBranch?.(branchCtxMenu.refName);
+                  setBranchCtxMenu(null);
+                }}
+              >
+                Delete branch
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </aside>
   );
 }

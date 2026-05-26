@@ -447,8 +447,16 @@ export class GitService {
 
   async deleteBranch(repoPath: string, branchName: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["branch", "-d", branchName]);
-    if (result.code !== 0) return fail(result, "Delete branch failed");
-    return ok(result);
+    if (result.code === 0) return ok(result);
+
+    const stderrLower = result.stderr.toLowerCase();
+    const isCurrentBranchError =
+      stderrLower.includes("cannot delete branch") && stderrLower.includes("checked out");
+    if (isCurrentBranchError) return fail(result, "Cannot delete the current branch");
+
+    const forceResult = await runGit(repoPath, ["branch", "-D", branchName]);
+    if (forceResult.code !== 0) return fail(forceResult, "Delete branch failed");
+    return ok(forceResult);
   }
 
   async renameBranch(repoPath: string, oldName: string, newName: string): Promise<GitOperationResult> {

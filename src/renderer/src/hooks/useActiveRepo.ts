@@ -2,8 +2,38 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Repository } from "../../../shared/types";
 import { gitClient } from "../services/gitClient";
+import { STORAGE_KEYS } from "../constants/storageKeys";
 
-const LAST_REPO_KEY = "gitdeck:lastRepo";
+function readStoredOpenRepos(): ActiveRepo[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.openRepos);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (item): item is ActiveRepo =>
+          !!item &&
+          typeof item === "object" &&
+          typeof (item as { path?: unknown }).path === "string" &&
+          typeof (item as { name?: unknown }).name === "string"
+      )
+      .map((repo) => ({ path: repo.path, name: repo.name }));
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredOpenRepos(repos: ActiveRepo[]): void {
+  try {
+    if (repos.length === 0) {
+      localStorage.removeItem(STORAGE_KEYS.openRepos);
+      return;
+    }
+    localStorage.setItem(STORAGE_KEYS.openRepos, JSON.stringify(repos));
+  } catch {
+  }
+}
 
 export interface ActiveRepo {
   path: string;
@@ -20,6 +50,7 @@ export interface UseActiveRepo {
   openByPath: (repo: Repository) => Promise<void>;
   setActiveByPath: (path: string) => void;
   closeByPath: (path: string) => void;
+  reorderByPath: (sourcePath: string, targetPath: string) => void;
   refreshRecents: () => Promise<void>;
   close: () => void;
 }
@@ -41,18 +72,44 @@ export function useActiveRepo(): UseActiveRepo {
       const list = await gitClient.recentRepositories();
       if (cancelled) return;
       setRecents(list);
-      const last = localStorage.getItem(LAST_REPO_KEY);
-      if (last) {
-        const match = list.find((r) => r.path === last);
-        if (match) {
+      const openRepos = readStoredOpenRepos();
+      if (openRepos.length > 0) {
+        const validRepos: ActiveRepo[] = [];
+        for (const stored of openRepos) {
           try {
-            await gitClient.status(match.path);
-            if (!cancelled) {
-              setRepos([{ path: match.path, name: match.name }]);
-              setActivePath(match.path);
-            }
+            await gitClient.status(stored.path);
+            validRepos.push(stored);
           } catch {
-            localStorage.removeItem(LAST_REPO_KEY);
+            // ignore repos that can no longer be opened
+          }
+        }
+
+        if (!cancelled) {
+          setRepos(validRepos);
+          const last = localStorage.getItem(STORAGE_KEYS.lastRepoPath);
+          if (last && validRepos.some((repo) => repo.path === last)) {
+            setActivePath(last);
+          } else if (validRepos[0]) {
+            setActivePath(validRepos[0].path);
+            localStorage.setItem(STORAGE_KEYS.lastRepoPath, validRepos[0].path);
+          } else {
+            localStorage.removeItem(STORAGE_KEYS.lastRepoPath);
+          }
+        }
+      } else {
+        const last = localStorage.getItem(STORAGE_KEYS.lastRepoPath);
+        if (last) {
+          const match = list.find((r) => r.path === last);
+          if (match) {
+            try {
+              await gitClient.status(match.path);
+              if (!cancelled) {
+                setRepos([{ path: match.path, name: match.name }]);
+                setActivePath(match.path);
+              }
+            } catch {
+              localStorage.removeItem(STORAGE_KEYS.lastRepoPath);
+            }
           }
         }
       }
@@ -71,8 +128,12 @@ export function useActiveRepo(): UseActiveRepo {
       return [...current, { path, name }];
     });
     setActivePath(path);
-    localStorage.setItem(LAST_REPO_KEY, path);
+    localStorage.setItem(STORAGE_KEYS.lastRepoPath, path);
   }, []);
+
+  useEffect(() => {
+    writeStoredOpenRepos(repos);
+  }, [repos]);
 
   const openPicker = useCallback(async () => {
     const result = await gitClient.selectRepository();
@@ -100,7 +161,8 @@ export function useActiveRepo(): UseActiveRepo {
 
   const close = useCallback(() => {
     setActivePath(null);
-    localStorage.removeItem(LAST_REPO_KEY);
+    localStorage.removeItem(STORAGE_KEYS.lastRepoPath);
+    localStorage.removeItem(STORAGE_KEYS.openRepos);
   }, []);
 
   const setActiveByPath = useCallback((path: string) => {
@@ -108,7 +170,7 @@ export function useActiveRepo(): UseActiveRepo {
       return;
     }
     setActivePath(path);
-    localStorage.setItem(LAST_REPO_KEY, path);
+    localStorage.setItem(STORAGE_KEYS.lastRepoPath, path);
   }, [repos]);
 
   const closeByPath = useCallback((path: string) => {
@@ -116,19 +178,41 @@ export function useActiveRepo(): UseActiveRepo {
       const index = current.findIndex((repo) => repo.path === path);
       if (index < 0) return current;
       const next = current.filter((repo) => repo.path !== path);
-      if (next.length === 0) {
-        setActivePath(null);
-        localStorage.removeItem(LAST_REPO_KEY);
-      } else {
-        setActivePath((currentActivePath) => {
-          if (currentActivePath !== path) {
-            return currentActivePath;
-          }
-          const fallback = next[Math.min(index, next.length - 1)]!;
-          localStorage.setItem(LAST_REPO_KEY, fallback.path);
-          return fallback.path;
-        });
+        if (next.length === 0) {
+          setActivePath(null);
+          localStorage.removeItem(STORAGE_KEYS.lastRepoPath);
+        } else {
+          setActivePath((currentActivePath) => {
+            if (currentActivePath !== path) {
+              return currentActivePath;
+            }
+            const fallback = next[Math.min(index, next.length - 1)]!;
+            localStorage.setItem(STORAGE_KEYS.lastRepoPath, fallback.path);
+            return fallback.path;
+          });
+        }
+      return next;
+    });
+  }, []);
+
+  const reorderByPath = useCallback((sourcePath: string, targetPath: string) => {
+    if (sourcePath === targetPath) {
+      return;
+    }
+
+    setRepos((current) => {
+      const sourceIndex = current.findIndex((repo) => repo.path === sourcePath);
+      const targetIndex = current.findIndex((repo) => repo.path === targetPath);
+      if (sourceIndex < 0 || targetIndex < 0) {
+        return current;
       }
+
+      const next = [...current];
+      const [moved] = next.splice(sourceIndex, 1);
+      if (!moved) {
+        return current;
+      }
+      next.splice(targetIndex, 0, moved);
       return next;
     });
   }, []);
@@ -145,6 +229,7 @@ export function useActiveRepo(): UseActiveRepo {
     openByPath,
     setActiveByPath,
     closeByPath,
+    reorderByPath,
     refreshRecents,
     close
   };
