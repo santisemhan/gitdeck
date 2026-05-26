@@ -183,9 +183,6 @@ export function FileHistoryWorkspace({
   // Build ChangedFile from the selected entry's pathAtCommit
   const diffFile = selectedEntry ? toChangedFile(selectedEntry.pathAtCommit) : null;
 
-  // Build a shorter display path that fits better
-  const fileName = filePath.split("/").pop() || filePath;
-
   return (
     <div className="fh-workspace">
       {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -194,9 +191,6 @@ export function FileHistoryWorkspace({
           <span className="fh-header-label">File History:</span>
           <span className="fh-header-path" title={filePath}>{filePath}</span>
         </span>
-        <button className="fh-header-close" onClick={onClose} title="Close file history (Esc)">
-          <IconX size={14} />
-        </button>
       </div>
 
       {/* ── Body ───────────────────────────────────────────────────────── */}
