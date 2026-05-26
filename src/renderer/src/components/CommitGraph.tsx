@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import type { Commit, CommitRef } from "../data/types";
+import { STORAGE_KEYS } from "../constants/storageKeys";
 import {
   IconCaretDown,
   IconCloud,
@@ -22,6 +23,24 @@ const laneColor = (lane: number) => LANE_PALETTE[lane % LANE_PALETTE.length];
 const ROW_H = 30;
 const NODE_R = 7;
 const LANE_X = (lane: number) => 14 + lane * 18;
+
+function readStoredNumber(key: string, fallback: number): number {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredNumber(key: string, value: number): void {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+  }
+}
 
 type BranchCtxMenu = { x: number; y: number; refName: string; isCurrent: boolean; isRemote: boolean };
 type StashCtxMenu  = { x: number; y: number; index: number; message: string };
@@ -58,7 +77,10 @@ export function CommitGraph({
   onCherryPick,
   onRevertCommit,
 }: CommitGraphProps) {
-  const [columns, setColumns] = useState({ labels: 200, graph: 60 });
+  const [columns, setColumns] = useState(() => ({
+    labels: Math.max(140, readStoredNumber(STORAGE_KEYS.commitGraphLabelsWidth, 200)),
+    graph: Math.max(60, readStoredNumber(STORAGE_KEYS.commitGraphWidth, 60)),
+  }));
   const resizeRef = useRef<{ key: "labels" | "graph"; startX: number; startWidth: number } | null>(null);
 
   const requiredGraphWidth = useMemo(() => {
@@ -103,6 +125,14 @@ export function CommitGraph({
       return { ...prev, graph: requiredGraphWidth };
     });
   }, [requiredGraphWidth]);
+
+  useEffect(() => {
+    writeStoredNumber(STORAGE_KEYS.commitGraphLabelsWidth, columns.labels);
+  }, [columns.labels]);
+
+  useEffect(() => {
+    writeStoredNumber(STORAGE_KEYS.commitGraphWidth, columns.graph);
+  }, [columns.graph]);
 
   const byId = useMemo(() => {
     const m: Record<string, Commit & { rowIdx: number }> = {};

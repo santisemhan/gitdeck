@@ -191,6 +191,9 @@ export function FileHistoryWorkspace({
           <span className="fh-header-label">File History:</span>
           <span className="fh-header-path" title={filePath}>{filePath}</span>
         </span>
+        <button className="fh-header-close" onClick={onClose} title="Close file history (Esc)">
+          <IconX size={14} />
+        </button>
       </div>
 
       {/* ── Body ───────────────────────────────────────────────────────── */}
@@ -229,7 +232,6 @@ export function FileHistoryWorkspace({
               commitHash={selectedEntry.commit.hash}
               diffMode={diffMode}
               onChangeDiffMode={onChangeDiffMode}
-              onClose={onClose}
               hideHistoryButton
             />
           ) : (

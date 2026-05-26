@@ -57,6 +57,7 @@ export function App() {
           onOpenPicker={repoState.openPicker}
           onSwitchRepo={repoState.setActiveByPath}
           onCloseRepo={repoState.closeByPath}
+          onReorderRepo={repoState.reorderByPath}
           onCloseAll={repoState.close}
         />
       )}
@@ -72,6 +73,7 @@ interface RepoViewProps {
   onOpenPicker: () => Promise<void>;
   onSwitchRepo: (path: string) => void;
   onCloseRepo: (path: string) => void;
+  onReorderRepo: (sourcePath: string, targetPath: string) => void;
   onCloseAll: () => void;
 }
 
@@ -83,6 +85,7 @@ function RepoView({
   onOpenPicker,
   onSwitchRepo,
   onCloseRepo,
+  onReorderRepo,
   onCloseAll
 }: RepoViewProps) {
   const data = useRepoData(repoPath);
@@ -554,6 +557,7 @@ function RepoView({
         onCloseAll={onCloseAll}
         onSwitchRepo={onSwitchRepo}
         onCloseRepo={onCloseRepo}
+        onReorderRepo={onReorderRepo}
       />
 
       <div className="top-controls">
@@ -689,6 +693,9 @@ function RepoView({
               currentBranchId={currentBranchId}
               onSelectBranch={handleSelectBranch}
               onCheckoutBranch={handleCheckoutBranch}
+              onCreateBranchFrom={(refName) => void handleCreateBranchFrom(refName)}
+              onDeleteBranch={(refName) => void handleDeleteBranch(refName)}
+              onRequestRenameBranch={handleRequestRenameBranch}
             />
 
             <div className="center">

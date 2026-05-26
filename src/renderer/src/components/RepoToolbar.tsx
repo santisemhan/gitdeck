@@ -7,8 +7,6 @@ import {
   IconCaretDown,
   IconCloudArrowDown,
   IconCloudArrowUp,
-  IconSearch,
-  IconTerminal,
 } from "./icons";
 
 interface ToolbarActionProps {
@@ -126,14 +124,6 @@ export function RepoToolbar(props: RepoToolbarProps) {
           disabled={props.stashCount === 0}
           onClick={props.onPop}
         />
-        <div className="divider divider-compact" />
-        <ToolbarAction icon={<IconTerminal size={16} />} label="Terminal" disabled />
-        <div className="divider divider-compact" />
-        <button className="toolbar-action toolbar-search" title="Search">
-          <span className="ico">
-            <IconSearch size={15} />
-          </span>
-        </button>
       </div>
     </div>
   );

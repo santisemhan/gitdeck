@@ -215,6 +215,9 @@
   position: relative;
   cursor: pointer;
 }
+.tab.dragging {
+  opacity: 0.6;
+}
 .tab.active {
   color: var(--text-1);
   background: var(--bg-1);

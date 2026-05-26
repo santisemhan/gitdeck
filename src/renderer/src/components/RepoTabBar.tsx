@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { IconBell, IconBranch, IconGear, IconX } from "./icons";
 
 interface RepoTab {
@@ -11,9 +12,19 @@ interface RepoTabBarProps {
   onCloseAll: () => void;
   onSwitchRepo: (path: string) => void;
   onCloseRepo: (path: string) => void;
+  onReorderRepo: (sourcePath: string, targetPath: string) => void;
 }
 
-export function RepoTabBar({ openRepos, activePath, onCloseAll, onSwitchRepo, onCloseRepo }: RepoTabBarProps) {
+export function RepoTabBar({
+  openRepos,
+  activePath,
+  onCloseAll,
+  onSwitchRepo,
+  onCloseRepo,
+  onReorderRepo
+}: RepoTabBarProps) {
+  const [draggingPath, setDraggingPath] = useState<string | null>(null);
+
   return (
     <div className="tabbar">
       <button className="icon-btn" title="Launchpad" onClick={onCloseAll}>
@@ -23,12 +34,34 @@ export function RepoTabBar({ openRepos, activePath, onCloseAll, onSwitchRepo, on
       </button>
       {openRepos.map((openRepo) => {
         const isActive = openRepo.path === activePath;
+        const isDragging = openRepo.path === draggingPath;
         return (
           <div
             key={openRepo.path}
-            className={"tab" + (isActive ? " active" : "")}
+            className={"tab" + (isActive ? " active" : "") + (isDragging ? " dragging" : "")}
             onClick={() => onSwitchRepo(openRepo.path)}
             title={openRepo.path}
+            draggable
+            onDragStart={(event) => {
+              setDraggingPath(openRepo.path);
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", openRepo.path);
+            }}
+            onDragOver={(event) => {
+              if (draggingPath && draggingPath !== openRepo.path) {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+              }
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              const sourcePath = event.dataTransfer.getData("text/plain") || draggingPath;
+              if (sourcePath && sourcePath !== openRepo.path) {
+                onReorderRepo(sourcePath, openRepo.path);
+              }
+              setDraggingPath(null);
+            }}
+            onDragEnd={() => setDraggingPath(null)}
           >
             <span className="branch-icon">
               <IconBranch size={11} />
