@@ -6,13 +6,10 @@ import { gitClient } from "../services/gitClient";
 import { buildSplitRows, parseUnifiedDiff, tokenize, type DiffHunk, type SplitDiffRow } from "../utils/diff";
 import { FileStatusIcon } from "./FileStatusIcon";
 import {
-  IconArrowDown,
-  IconArrowUp,
   IconEye,
   IconHistory,
   IconInline,
   IconSplit,
-  IconWrap,
   IconX,
 } from "./icons";
 import { SegmentedControl } from "./SegmentedControl";
@@ -326,21 +323,7 @@ function DiffToolbar({ source, diffMode, viewMode, onChangeDiffMode, onChangeVie
             { value: "diff", label: "Diff View", icon: <IconSplit size={12} /> },
           ]}
         />
-        {viewMode === "diff" && (
-          <>
-            <div className="vert-divider" />
-            <button className="nav-btn" title="Previous change">
-              <IconArrowUp size={13} />
-            </button>
-            <button className="nav-btn" title="Next change">
-              <IconArrowDown size={13} />
-            </button>
-          </>
-        )}
         <div className="vert-divider" />
-        <button className="nav-btn" title="Word wrap">
-          <IconWrap size={13} />
-        </button>
         <button className="nav-btn" title="Blame">
           <IconHistory size={13} />
         </button>
@@ -535,7 +518,10 @@ function FileViewer({ text }: { text: string }) {
       {lines.map((line, i) => (
         <div key={i} className="dline ctx">
           <div className="ln">{i + 1}</div>
-          <div className="code">{line || " "}</div>
+          <div
+            className="code"
+            dangerouslySetInnerHTML={{ __html: line ? tokenize(line) : "&nbsp;" }}
+          />
         </div>
       ))}
     </div>
