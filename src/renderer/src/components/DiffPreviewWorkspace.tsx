@@ -25,6 +25,9 @@ interface DiffPreviewWorkspaceProps {
   onStageFile?: (file: ChangedFile) => void;
   onUnstageFile?: (file: ChangedFile) => void;
   onEditFile?: (file: ChangedFile) => void;
+  onShowHistory?: () => void;
+  /** When true the history button in the toolbar is hidden (e.g. already inside FileHistoryWorkspace) */
+  hideHistoryButton?: boolean;
 }
 
 export function DiffPreviewWorkspace({
@@ -38,6 +41,8 @@ export function DiffPreviewWorkspace({
   onStageFile,
   onUnstageFile,
   onEditFile,
+  onShowHistory,
+  hideHistoryButton,
 }: DiffPreviewWorkspaceProps) {
   const [hunks, setHunks] = useState<DiffHunk[]>([]);
   const [loading, setLoading] = useState(true);
@@ -199,6 +204,8 @@ export function DiffPreviewWorkspace({
         onChangeDiffMode={onChangeDiffMode}
         onChangeViewMode={setViewMode}
         onEditFile={onEditFile ? () => onEditFile(file) : undefined}
+        onShowHistory={onShowHistory}
+        hideHistoryButton={hideHistoryButton}
       />
       {viewMode === "file" ? (
         fileLoading ? (
@@ -291,9 +298,11 @@ interface DiffToolbarProps {
   onChangeDiffMode: (mode: DiffMode) => void;
   onChangeViewMode: (mode: "diff" | "file") => void;
   onEditFile?: () => void;
+  onShowHistory?: () => void;
+  hideHistoryButton?: boolean;
 }
 
-function DiffToolbar({ source, diffMode, viewMode, onChangeDiffMode, onChangeViewMode, onEditFile }: DiffToolbarProps) {
+function DiffToolbar({ source, diffMode, viewMode, onChangeDiffMode, onChangeViewMode, onEditFile, onShowHistory, hideHistoryButton }: DiffToolbarProps) {
   return (
     <div className="diff-toolbar">
       {(source === "unstaged" || source === "staged") && (
@@ -324,9 +333,11 @@ function DiffToolbar({ source, diffMode, viewMode, onChangeDiffMode, onChangeVie
           ]}
         />
         <div className="vert-divider" />
-        <button className="nav-btn" title="Blame">
-          <IconHistory size={13} />
-        </button>
+        {!hideHistoryButton && (
+          <button className="nav-btn" title="File history" onClick={onShowHistory}>
+            <IconHistory size={13} />
+          </button>
+        )}
       </div>
     </div>
   );

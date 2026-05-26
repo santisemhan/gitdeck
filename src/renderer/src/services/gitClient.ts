@@ -1,5 +1,6 @@
 import type {
   CommitDetails,
+  FileHistoryEntry,
   GitBranch,
   GitCommit,
   GitDiff,
@@ -33,6 +34,9 @@ export const gitClient = {
   },
   history(repoPath: string): Promise<GitCommit[]> {
     return api().getHistory(repoPath);
+  },
+  fileHistory(repoPath: string, filePath: string, opts?: { limit?: number; skip?: number }): Promise<FileHistoryEntry[]> {
+    return api().getFileHistory(repoPath, filePath, opts);
   },
   branches(repoPath: string): Promise<GitBranch[]> {
     return api().getBranches(repoPath);

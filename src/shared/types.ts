@@ -121,6 +121,12 @@ export interface CommitDetails {
   parentHashes: string[];
 }
 
+export interface FileHistoryEntry {
+  commit: GitCommit;
+  /** Path of the file at this commit (may differ from current path due to renames) */
+  pathAtCommit: string;
+}
+
 export type FileStatus = GitFileKind;
 export type DiffMode = "split" | "inline";
 export type MainView = "graph" | "filePreview";

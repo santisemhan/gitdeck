@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld("gitdeck", {
   discardAll: (repoPath: string) => ipcRenderer.invoke(Channels.discardAll, repoPath),
   commit: (repoPath: string, message: string) => ipcRenderer.invoke(Channels.commit, repoPath, message),
   getHistory: (repoPath: string) => ipcRenderer.invoke(Channels.getHistory, repoPath),
+  getFileHistory: (repoPath: string, filePath: string, opts?: { limit?: number; skip?: number }) => ipcRenderer.invoke(Channels.getFileHistory, repoPath, filePath, opts),
   getCommitDetails: (repoPath: string, commitHash: string) => ipcRenderer.invoke(Channels.getCommitDetails, repoPath, commitHash),
   getCommitFileDiff: (repoPath: string, commitHash: string, filePath: string) => ipcRenderer.invoke(Channels.getCommitFileDiff, repoPath, commitHash, filePath),
   getFileContent: (repoPath: string, filePath: string, source: string, commitHash?: string) => ipcRenderer.invoke(Channels.getFileContent, repoPath, filePath, source, commitHash),

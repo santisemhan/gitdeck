@@ -8,6 +8,26 @@ import {
   IconTrash,
 } from "./icons";
 import { PanelSection } from "./PanelSection";
+import { getCommitDraftStorageKeys } from "../constants/storageKeys";
+
+function readDraftValue(key: string): string {
+  try {
+    return localStorage.getItem(key) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeDraftValue(key: string, value: string): void {
+  try {
+    if (value.length > 0) {
+      localStorage.setItem(key, value);
+      return;
+    }
+    localStorage.removeItem(key);
+  } catch {
+  }
+}
 
 function shouldIgnoreArrowNavigation(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -50,6 +70,7 @@ function useArrowFileNavigation(
 }
 
 interface RightPanelProps {
+  repoPath: string;
   mode: "localChanges" | "commitDetails";
   selectedCommit: Commit | null;
   commitFiles: ChangedFile[];
@@ -73,6 +94,7 @@ export function RightPanel(props: RightPanelProps) {
     <div className="rpanel">
       {props.mode === "localChanges" ? (
         <LocalChangesPanel
+          repoPath={props.repoPath}
           unstagedFiles={props.unstagedFiles}
           stagedFiles={props.stagedFiles}
           selectedFileId={props.selectedFileId}
@@ -138,6 +160,7 @@ function ChangedFileRow({ file, selected, onSelect, actionLabel, onAction }: Cha
 }
 
 interface LocalChangesPanelProps {
+  repoPath: string;
   unstagedFiles: ChangedFile[];
   stagedFiles: ChangedFile[];
   selectedFileId?: string;
@@ -152,6 +175,7 @@ interface LocalChangesPanelProps {
 }
 
 function LocalChangesPanel({
+  repoPath,
   unstagedFiles,
   stagedFiles,
   selectedFileId,
@@ -393,6 +417,7 @@ function LocalChangesPanel({
         </div>
 
       <CommitForm
+        repoPath={repoPath}
         stagedCount={stagedFiles.length}
         onCommit={onCommit}
         height={commitHeight}
@@ -403,18 +428,33 @@ function LocalChangesPanel({
 }
 
 interface CommitFormProps {
+  repoPath: string;
   stagedCount: number;
   onCommit: (summary: string, description: string) => void;
   height: number;
   onStartResize: (event: ReactMouseEvent<HTMLDivElement>) => void;
 }
 
-function CommitForm({ stagedCount, onCommit, height, onStartResize }: CommitFormProps) {
-  const [summary, setSummary] = useState("");
-  const [desc, setDesc] = useState("");
+function CommitForm({ repoPath, stagedCount, onCommit, height, onStartResize }: CommitFormProps) {
+  const storageKeys = useMemo(() => getCommitDraftStorageKeys(repoPath), [repoPath]);
+  const [summary, setSummary] = useState(() => readDraftValue(storageKeys.summary));
+  const [desc, setDesc] = useState(() => readDraftValue(storageKeys.description));
   const maxLen = 72;
   const remaining = maxLen - summary.length;
   const canCommit = stagedCount > 0 && summary.trim().length > 0;
+
+  useEffect(() => {
+    setSummary(readDraftValue(storageKeys.summary));
+    setDesc(readDraftValue(storageKeys.description));
+  }, [storageKeys]);
+
+  useEffect(() => {
+    writeDraftValue(storageKeys.summary, summary);
+  }, [storageKeys.summary, summary]);
+
+  useEffect(() => {
+    writeDraftValue(storageKeys.description, desc);
+  }, [storageKeys.description, desc]);
 
   const submit = () => {
     if (!canCommit) return;

@@ -1,0 +1,179 @@
+/* When file history is shown, it takes up the entire workarea */
+.workarea:has(.fh-workspace) {
+  display: block;
+}
+
+.fh-workspace {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-1);
+}
+
+.fh-header {
+  min-height: 36px;
+  border-bottom: 1px solid var(--border-1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px 0 12px;
+  background: var(--bg-1);
+  flex-shrink: 0;
+}
+
+.fh-header-title {
+  min-width: 0;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+.fh-header-label { color: var(--text-2); white-space: nowrap; }
+
+.fh-header-path {
+  color: var(--text-1);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.fh-header-close {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--text-2);
+  display: grid;
+  place-items: center;
+}
+
+.fh-header-close:hover {
+  background: var(--bg-2);
+  color: var(--text-1);
+}
+
+.fh-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  height: 100%;
+  overflow: hidden;
+}
+
+.fh-commit-list {
+  border-right: 1px solid var(--border-1);
+  overflow-y: auto;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-1);
+}
+
+.fh-commit-item {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-1);
+}
+
+.fh-commit-item:hover { background: var(--bg-2); }
+
+.fh-commit-item.selected {
+  background: var(--select-bg);
+}
+
+.fh-commit-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.fh-commit-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.fh-commit-subject {
+  font-size: 12.5px;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fh-commit-meta {
+  font-size: 11px;
+  color: var(--text-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.fh-commit-hash {
+  color: var(--text-2);
+  font-family: var(--font-mono);
+}
+
+.fh-commit-author,
+.fh-commit-date,
+.fh-commit-sep {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fh-empty,
+.fh-loading-text,
+.fh-diff-placeholder {
+  color: var(--text-3);
+  padding: 14px;
+  font-size: 12px;
+}
+
+.fh-sentinel {
+  height: 42px;
+  display: grid;
+  place-items: center;
+}
+
+.fh-diff-panel {
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Override diff-workspace absolute positioning when inside file history */
+.fh-diff-panel > .diff-workspace {
+  position: static;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 1080px) {
+  .fh-body {
+    grid-template-columns: 300px 1fr;
+  }
+}
