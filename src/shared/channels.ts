@@ -39,5 +39,12 @@ export const Channels = {
 
   isVSCodeAvailable: "editor:isVSCodeAvailable",
   openFileInVSCode: "editor:openFileInVSCode",
-  openRepoInVSCode: "editor:openRepoInVSCode"
+  openRepoInVSCode: "editor:openRepoInVSCode",
+
+  terminalCreate: "terminal:create",
+  terminalInput: "terminal:input",
+  terminalResize: "terminal:resize",
+  terminalClose: "terminal:close",
+  terminalData: "terminal:data",
+  terminalExit: "terminal:exit"
 } as const;

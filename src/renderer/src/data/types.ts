@@ -40,6 +40,12 @@ export interface Commit {
   stashIndex?: number;
   stashMessage?: string;
   additions?: number;
+  wipCounts?: {
+    added: number;
+    modified: number;
+    deleted: number;
+    renamed: number;
+  };
 }
 
 export interface LocalBranch {

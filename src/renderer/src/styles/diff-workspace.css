@@ -193,6 +193,41 @@
   min-height: 0;
 }
 
+.diff-view-shell {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.diff-overview-rail {
+  position: absolute;
+  top: 0;
+  right: 5px;
+  bottom: 0;
+  width: 12px;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.diff-overview-marker {
+  position: absolute;
+  left: 1px;
+  width: 8px;
+  height: 3px;
+  border-radius: 2px;
+  transform: translateY(-50%);
+}
+
+.diff-overview-marker.add {
+  background: var(--add);
+}
+
+.diff-overview-marker.del {
+  background: var(--del);
+}
+
 /* Split diff */
 .split-diff {
   display: grid;

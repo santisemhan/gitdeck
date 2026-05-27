@@ -7,30 +7,12 @@ import {
   IconPlus,
   IconSearch
 } from "./icons";
+import { formatRelativeTime } from "../utils/date";
 
 interface RepositoryLauncherProps {
   recents: Repository[];
   onOpenPicker: () => void;
   onOpenRepo: (repo: Repository) => void;
-}
-
-function relativeTime(iso: string): string {
-  if (!iso) return "";
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "";
-  const diff = Date.now() - then;
-  const sec = Math.floor(diff / 1000);
-  if (sec < 60) return "just now";
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const d = Math.floor(hr / 24);
-  if (d < 30) return `${d}d ago`;
-  const mo = Math.floor(d / 30);
-  if (mo < 12) return `${mo}mo ago`;
-  const y = Math.floor(mo / 12);
-  return `${y}y ago`;
 }
 
 export function RepositoryLauncher({ recents, onOpenPicker, onOpenRepo }: RepositoryLauncherProps) {
@@ -90,7 +72,7 @@ export function RepositoryLauncher({ recents, onOpenPicker, onOpenRepo }: Reposi
                       <span className="name">{r.name}</span>
                       <span className="path">{r.path}</span>
                     </span>
-                    <span className="time">{relativeTime(r.lastOpenedAt)}</span>
+                    <span className="time">{formatRelativeTime(r.lastOpenedAt, { invalid: "" })}</span>
                   </button>
                 </li>
               ))}

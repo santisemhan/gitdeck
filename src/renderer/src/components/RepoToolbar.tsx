@@ -7,6 +7,7 @@ import {
   IconCaretDown,
   IconCloudArrowDown,
   IconCloudArrowUp,
+  IconTerminal,
 } from "./icons";
 
 interface ToolbarActionProps {
@@ -62,6 +63,7 @@ interface RepoToolbarProps {
   onCreateBranch: () => void;
   onStash: () => void;
   onPop: () => void;
+  onToggleTerminal: () => void;
 }
 
 export function RepoToolbar(props: RepoToolbarProps) {
@@ -124,6 +126,8 @@ export function RepoToolbar(props: RepoToolbarProps) {
           disabled={props.stashCount === 0}
           onClick={props.onPop}
         />
+        <div className="divider divider-compact" />
+        <ToolbarAction icon={<IconTerminal size={16} />} label="Terminal" onClick={props.onToggleTerminal} />
       </div>
     </div>
   );

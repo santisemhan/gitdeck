@@ -12,8 +12,8 @@
 .rpanel-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: 9px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border-1);
 }
 .rpanel-head-local-link {
@@ -21,7 +21,7 @@
   border-bottom-color: rgba(110, 162, 255, 0.24);
 }
 .rpanel-head .trash {
-  width: 26px; height: 26px;
+  width: 30px; height: 30px;
   display: grid; place-items: center;
   background: var(--bg-2);
   border: 1px solid var(--border-2);
@@ -30,7 +30,7 @@
 }
 .rpanel-head .trash:hover { background: var(--bg-3); }
 .rpanel-head .title {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-1);
   display: inline-flex;
   align-items: center;
@@ -42,9 +42,9 @@
 .rpanel-head .branch-chip {
   background: var(--accent-soft);
   color: var(--accent);
-  padding: 2px 8px;
+  padding: 2px 9px;
   border-radius: 3px;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 600;
 }
 .rpanel-head .ai-btn {
@@ -233,7 +233,7 @@
 .files-list {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 0;
+  padding: 6px 0;
   min-height: 0;
 }
 
@@ -258,18 +258,18 @@
 .file-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 14px;
-  font-size: 12.5px;
+  gap: 10px;
+  padding: 5px 16px;
+  font-size: 14px;
   color: var(--text-2);
   cursor: pointer;
-  height: 26px;
+  height: 30px;
   position: relative;
 }
 .file-row:hover { background: var(--bg-2); color: var(--text-1); }
 .file-row.selected { background: var(--blue-soft); color: var(--text-1); }
 .file-row .status-icon {
-  width: 16px; height: 16px;
+  width: 19px; height: 19px;
   display: grid; place-items: center;
   flex-shrink: 0;
 }
@@ -304,11 +304,11 @@
   opacity: 0;
   display: inline-flex;
   align-items: center;
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--text-3);
   border: 1px solid var(--border-2);
-  border-radius: 3px;
-  padding: 1px 6px;
+  border-radius: 4px;
+  padding: 2px 8px;
   background: var(--bg-3);
 }
 .file-row:hover .stage-btn { opacity: 1; }
@@ -320,7 +320,7 @@
 }
 .subsection:first-child { border-top: none; }
 .subsection-body {
-  min-height: 90px;
+  min-height: 117px;
   max-height: 320px;
   overflow: auto;
   resize: vertical;
@@ -344,11 +344,11 @@
 .subsection .head {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 8px;
+  padding: 10px 16px;
   color: var(--text-1);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
 }
 .subsection .head:hover { background: var(--bg-2); }
@@ -363,9 +363,9 @@
   background: var(--bg-3);
   border: 1px solid var(--border-2);
   color: var(--text-1);
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 500;
 }
 .subsection .head .stage-all:hover { background: var(--bg-4); }
@@ -393,8 +393,8 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 8px 14px 6px;
-  font-size: 12px;
+  padding: 10px 16px 8px;
+  font-size: 14px;
   color: var(--text-2);
 }
 .commit-form-wrap .ftab {
@@ -417,24 +417,24 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px;
-  font-size: 12px;
+  padding: 8px 16px;
+  font-size: 14px;
   color: var(--text-1);
 }
 .commit-form-wrap .amend input { accent-color: var(--accent); width: 14px; height: 14px; }
 
 .commit-form-wrap .summary {
-  padding: 0 14px 8px;
+  padding: 0 16px 10px;
   position: relative;
 }
 .commit-form-wrap .summary input {
   width: 100%;
   background: transparent;
   border: none;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--text-1);
   font-weight: 500;
-  padding: 4px 0;
+  padding: 5px 0;
   border-bottom: 1px solid var(--border-2);
   border-radius: 0;
 }
@@ -442,9 +442,9 @@
 .commit-form-wrap .summary input:focus { border-bottom-color: var(--accent); }
 .commit-form-wrap .summary .counter {
   position: absolute;
-  right: 14px;
-  top: 8px;
-  font-size: 11px;
+  right: 16px;
+  top: 10px;
+  font-size: 12.5px;
   color: var(--text-3);
 }
 .commit-form-wrap .summary .gen-ai {
@@ -459,17 +459,17 @@
   border-radius: 3px;
 }
 .commit-form-wrap .desc {
-  padding: 0 14px 8px;
+  padding: 0 16px 10px;
 }
 .commit-form-wrap .desc textarea {
   width: 100%;
   background: transparent;
   border: none;
   resize: none;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-1);
-  padding: 4px 0;
-  min-height: 30px;
+  padding: 5px 0;
+  min-height: 39px;
 }
 .commit-form-wrap .desc textarea::placeholder { color: var(--text-3); }
 .commit-form-wrap .desc textarea:focus { outline: none; }
@@ -504,13 +504,13 @@
 }
 
 .commit-form-wrap .submit {
-  margin: 0 14px 14px;
-  padding: 9px;
+  margin: 0 16px 16px;
+  padding: 12px;
   background: var(--accent-soft);
   border: 1px solid var(--accent-deep);
   color: var(--accent);
   border-radius: 5px;
-  font-size: 12.5px;
+  font-size: 14.5px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;

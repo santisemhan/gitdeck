@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { IconBell, IconBranch, IconGear, IconX } from "./icons";
+import { IconBranch, IconX } from "./icons";
 
 interface RepoTab {
   path: string;
@@ -83,16 +83,6 @@ export function RepoTabBar({
       <button className="new-tab" title="Open repository" onClick={onCloseAll}>
         +
       </button>
-
-      <div className="right">
-        <button className="icon-btn" title="Notifications">
-          <IconBell size={14} />
-          <span className="dot" />
-        </button>
-        <button className="icon-btn" title="Settings">
-          <IconGear size={14} />
-        </button>
-      </div>
     </div>
   );
 }

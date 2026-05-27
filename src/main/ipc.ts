@@ -5,6 +5,7 @@ import { Channels } from "../shared/channels";
 import { EditorService } from "./services/editorService";
 import { GitService } from "./services/gitService";
 import { RecentRepoStore } from "./services/recentRepoStore";
+import { TerminalService } from "./services/terminalService";
 
 interface RepoWatchEntry {
   repoPath: string;
@@ -15,6 +16,7 @@ export function registerIpcHandlers() {
   const gitService = new GitService();
   const editorService = new EditorService();
   const store = new RecentRepoStore();
+  const terminalService = new TerminalService();
   const watchesByWindow = new Map<number, RepoWatchEntry>();
 
   const stopWatching = (windowId: number) => {
@@ -119,4 +121,14 @@ export function registerIpcHandlers() {
   ipcMain.handle(Channels.isVSCodeAvailable, () => editorService.isVSCodeAvailable());
   ipcMain.handle(Channels.openFileInVSCode, (_e, filePath: string) => editorService.openFileInVSCode(filePath));
   ipcMain.handle(Channels.openRepoInVSCode, (_e, repoPath: string) => editorService.openRepositoryInVSCode(repoPath));
+
+  ipcMain.handle(Channels.terminalCreate, (event, repoPath: string, cols: number, rows: number) => {
+    if (!event.sender.isDestroyed()) {
+      event.sender.once("destroyed", () => terminalService.closeByWindow(event.sender.id));
+    }
+    return terminalService.createSession(event, repoPath, cols, rows);
+  });
+  ipcMain.handle(Channels.terminalInput, (_e, sessionId: string, data: string) => terminalService.input(sessionId, data));
+  ipcMain.handle(Channels.terminalResize, (_e, sessionId: string, cols: number, rows: number) => terminalService.resize(sessionId, cols, rows));
+  ipcMain.handle(Channels.terminalClose, (_e, sessionId: string) => terminalService.close(sessionId));
 }

@@ -104,6 +104,22 @@ export interface EditorOperationResult {
   message: string;
 }
 
+export interface TerminalCreateResult {
+  ok: boolean;
+  sessionId?: string;
+  message?: string;
+}
+
+export interface TerminalDataEvent {
+  sessionId: string;
+  data: string;
+}
+
+export interface TerminalExitEvent {
+  sessionId: string;
+  exitCode: number;
+}
+
 export interface WatchOperationResult {
   ok: boolean;
   message?: string;

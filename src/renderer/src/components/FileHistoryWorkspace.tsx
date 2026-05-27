@@ -3,27 +3,11 @@ import { toast } from "sonner";
 import type { FileHistoryEntry } from "../../../shared/types";
 import type { ChangedFile, DiffMode } from "../data/types";
 import { gitClient } from "../services/gitClient";
+import { formatRelativeTime } from "../utils/date";
 import { DiffPreviewWorkspace } from "./DiffPreviewWorkspace";
 import { IconX } from "./icons";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
-
-function formatRelativeDate(isoDate: string): string {
-  const now = Date.now();
-  const then = new Date(isoDate).getTime();
-  if (isNaN(then)) return isoDate;
-  const diff = now - then;
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
-  return `${Math.floor(months / 12)}y ago`;
-}
 
 function authorInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -85,7 +69,7 @@ function CommitItem({ entry, selected, onSelect }: CommitItemProps) {
         <span className="fh-commit-meta">
           <span className="fh-commit-hash">{commit.shortHash}</span>
           <span className="fh-commit-sep">·</span>
-          <span className="fh-commit-date">{formatRelativeDate(commit.date)}</span>
+          <span className="fh-commit-date">{formatRelativeTime(commit.date, { invalid: commit.date })}</span>
           <span className="fh-commit-sep">by</span>
           <span className="fh-commit-author">{commit.authorName}</span>
         </span>

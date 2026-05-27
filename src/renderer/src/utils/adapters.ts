@@ -155,6 +155,12 @@ export function toCommits(
   options: {
     unstagedCount: number;
     stagedCount: number;
+    wipCounts?: {
+      added: number;
+      modified: number;
+      deleted: number;
+      renamed: number;
+    };
     currentBranch?: string;
     stashes?: GitStashEntry[];
   }
@@ -258,7 +264,8 @@ export function toCommits(
       refs: [],
       lane: head.lane,
       isWip: true,
-      additions: total
+      additions: total,
+      wipCounts: options.wipCounts
     };
     return [wip, ...commits];
   }

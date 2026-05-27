@@ -457,6 +457,71 @@
   overflow: hidden;
 }
 
+.terminal-panel {
+  position: relative;
+  border-top: 1px solid var(--border-1);
+  background: #060b17;
+  flex-shrink: 0;
+  display: grid;
+  grid-template-rows: 5px 30px 1fr;
+}
+
+.terminal-resize-handle {
+  cursor: ns-resize;
+  background: transparent;
+}
+
+.terminal-resize-handle:hover {
+  background: rgba(110, 162, 255, 0.2);
+}
+
+.terminal-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  background: #060b17;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.terminal-panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.terminal-icon-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--text-3);
+}
+
+.terminal-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-1);
+}
+
+.terminal-host {
+  background: #060b17;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.terminal-host .xterm {
+  height: 100%;
+  padding: 8px 10px;
+}
+
+.terminal-host .xterm-viewport,
+.terminal-host .xterm-screen,
+.terminal-host .xterm-scroll-area {
+  background: #060b17 !important;
+}
+
 /* Status bar */
 .statusbar {
   display: flex;
