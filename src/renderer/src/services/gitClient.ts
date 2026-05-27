@@ -7,6 +7,9 @@ import type {
   GitSplitContent,
   GitOperationResult,
   GitStashEntry,
+  TerminalCreateResult,
+  TerminalDataEvent,
+  TerminalExitEvent,
   RepoChangeEvent,
   GitStatus,
   Repository,
@@ -137,6 +140,24 @@ export const gitClient = {
   },
   openRepoInVSCode(repoPath: string) {
     return api().openRepositoryInVSCode(repoPath);
+  },
+  terminalCreate(repoPath: string, cols: number, rows: number): Promise<TerminalCreateResult> {
+    return api().terminalCreate(repoPath, cols, rows);
+  },
+  terminalInput(sessionId: string, data: string): Promise<{ ok: boolean }> {
+    return api().terminalInput(sessionId, data);
+  },
+  terminalResize(sessionId: string, cols: number, rows: number): Promise<{ ok: boolean }> {
+    return api().terminalResize(sessionId, cols, rows);
+  },
+  terminalClose(sessionId: string): Promise<{ ok: boolean }> {
+    return api().terminalClose(sessionId);
+  },
+  onTerminalData(listener: (event: TerminalDataEvent) => void): () => void {
+    return api().onTerminalData(listener);
+  },
+  onTerminalExit(listener: (event: TerminalExitEvent) => void): () => void {
+    return api().onTerminalExit(listener);
   }
 };
 

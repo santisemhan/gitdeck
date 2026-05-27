@@ -46,5 +46,19 @@ contextBridge.exposeInMainWorld("gitdeck", {
 
   isVSCodeAvailable: () => ipcRenderer.invoke(Channels.isVSCodeAvailable),
   openFileInVSCode: (filePath: string) => ipcRenderer.invoke(Channels.openFileInVSCode, filePath),
-  openRepositoryInVSCode: (repoPath: string) => ipcRenderer.invoke(Channels.openRepoInVSCode, repoPath)
+  openRepositoryInVSCode: (repoPath: string) => ipcRenderer.invoke(Channels.openRepoInVSCode, repoPath),
+  terminalCreate: (repoPath: string, cols: number, rows: number) => ipcRenderer.invoke(Channels.terminalCreate, repoPath, cols, rows),
+  terminalInput: (sessionId: string, data: string) => ipcRenderer.invoke(Channels.terminalInput, sessionId, data),
+  terminalResize: (sessionId: string, cols: number, rows: number) => ipcRenderer.invoke(Channels.terminalResize, sessionId, cols, rows),
+  terminalClose: (sessionId: string) => ipcRenderer.invoke(Channels.terminalClose, sessionId),
+  onTerminalData: (listener: (event: { sessionId: string; data: string }) => void) => {
+    const handler = (_event: unknown, payload: { sessionId: string; data: string }) => listener(payload);
+    ipcRenderer.on(Channels.terminalData, handler);
+    return () => ipcRenderer.off(Channels.terminalData, handler);
+  },
+  onTerminalExit: (listener: (event: { sessionId: string; exitCode: number }) => void) => {
+    const handler = (_event: unknown, payload: { sessionId: string; exitCode: number }) => listener(payload);
+    ipcRenderer.on(Channels.terminalExit, handler);
+    return () => ipcRenderer.off(Channels.terminalExit, handler);
+  }
 });

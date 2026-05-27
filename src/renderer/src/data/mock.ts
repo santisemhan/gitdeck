@@ -6,18 +6,6 @@ export function splitPath(path: string): { dir: string; file: string } {
   return { dir: path.slice(0, idx + 1), file: path.slice(idx + 1) };
 }
 
-export function formatDate(iso: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}/${mm}/${yyyy} @ ${hh}:${min}`;
-}
-
 export function summarizeCounts(files: ChangedFile[]): {
   added: number;
   modified: number;

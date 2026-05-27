@@ -160,14 +160,14 @@ export function useRepoData(repoPath: string | null): UseRepoData {
 
   const stageAll = useCallback(
     async () => {
-      await run(() => gitClient.stageAll(repoPath!), "Staged all changes", "Failed to stage all");
+      await run(() => gitClient.stageAll(repoPath!), undefined, "Failed to stage all");
     },
     [run, repoPath]
   );
 
   const unstageAll = useCallback(
     async () => {
-      await run(() => gitClient.unstageAll(repoPath!), "Unstaged all changes", "Failed to unstage all");
+      await run(() => gitClient.unstageAll(repoPath!), undefined, "Failed to unstage all");
     },
     [run, repoPath]
   );

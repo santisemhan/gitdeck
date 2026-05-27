@@ -9,6 +9,7 @@ import { RepoTabBar } from "./components/RepoTabBar";
 import { RepoToolbar } from "./components/RepoToolbar";
 import { RepositoryLauncher } from "./components/RepositoryLauncher";
 import { RightPanel } from "./components/RightPanel";
+import { TerminalPanel } from "./components/TerminalPanel";
 import { useActiveRepo } from "./hooks/useActiveRepo";
 import { useRepoData } from "./hooks/useRepoData";
 import { gitClient } from "./services/gitClient";
@@ -108,12 +109,22 @@ function RepoView({
   const [renameBranchInput, setRenameBranchInput] = useState("");
   const [showRenameBranchBanner, setShowRenameBranchBanner] = useState(false);
   const [fileHistoryPath, setFileHistoryPath] = useState<string | null>(null);
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [terminalHeight, setTerminalHeight] = useState(220);
   const branchMenuRef = useRef<HTMLDivElement | null>(null);
 
   const { unstaged, staged } = useMemo(
     () => (status ? toChangedFiles(status) : { unstaged: [], staged: [] }),
     [status]
   );
+
+  const wipCounts = useMemo(() => {
+    const counts = { added: 0, modified: 0, deleted: 0, renamed: 0 };
+    for (const file of [...unstaged, ...staged]) {
+      counts[file.status] += 1;
+    }
+    return counts;
+  }, [staged, unstaged]);
 
   const currentBranch = status?.branch || "—";
 
@@ -138,10 +149,11 @@ function RepoView({
       toCommits(history, {
         unstagedCount: unstaged.length,
         stagedCount: staged.length,
+        wipCounts,
         currentBranch,
         stashes
       }),
-    [history, unstaged.length, staged.length, currentBranch, stashes]
+    [history, unstaged.length, staged.length, wipCounts, currentBranch, stashes]
   );
 
   const allBranches = useMemo(
@@ -673,6 +685,7 @@ function RepoView({
           onCreateBranch={() => void handleCreateBranch()}
           onStash={() => void handleStash()}
           onPop={() => void handleToolbarPop()}
+          onToggleTerminal={() => setIsTerminalOpen((open) => !open)}
         />
       </div>
 
@@ -728,6 +741,14 @@ function RepoView({
                   onUnstageFile={handleUnstageFile}
                   onEditFile={handleEditFile}
                   onShowHistory={() => handleOpenFileHistory(selectedFile)}
+                />
+              )}
+              {isTerminalOpen && (
+                <TerminalPanel
+                  repoPath={repoPath}
+                  height={terminalHeight}
+                  onResize={setTerminalHeight}
+                  onClose={() => setIsTerminalOpen(false)}
                 />
               )}
             </div>

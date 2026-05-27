@@ -10,6 +10,9 @@ import type {
   GitStashEntry,
   GitStatus,
   Repository,
+  TerminalCreateResult,
+  TerminalDataEvent,
+  TerminalExitEvent,
   WatchOperationResult
 } from "../../shared/types";
 
@@ -55,6 +58,12 @@ declare global {
       isVSCodeAvailable(): Promise<boolean>;
       openFileInVSCode(filePath: string): Promise<EditorOperationResult>;
       openRepositoryInVSCode(repoPath: string): Promise<EditorOperationResult>;
+      terminalCreate(repoPath: string, cols: number, rows: number): Promise<TerminalCreateResult>;
+      terminalInput(sessionId: string, data: string): Promise<{ ok: boolean }>;
+      terminalResize(sessionId: string, cols: number, rows: number): Promise<{ ok: boolean }>;
+      terminalClose(sessionId: string): Promise<{ ok: boolean }>;
+      onTerminalData(listener: (event: TerminalDataEvent) => void): () => void;
+      onTerminalExit(listener: (event: TerminalExitEvent) => void): () => void;
     };
   }
 }

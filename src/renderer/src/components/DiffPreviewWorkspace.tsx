@@ -269,7 +269,6 @@ function DiffHeader({ file, source, onClose, onStageFile, onUnstageFile }: DiffH
         <span className="dir">{dir}</span>
         <span className="file">{fname}</span>
       </div>
-      <span className="encoding">UTF-8</span>
       {source === "unstaged" && (
         <div className="actions">
           <button className="stage-file" onClick={() => onStageFile?.(file)}>
@@ -380,14 +379,8 @@ function SplitDiffViewer({ hunks, fullRows }: { hunks: DiffHunk[]; fullRows: Spl
   const leftRef = useRef<HTMLDivElement | null>(null);
   const rightRef = useRef<HTMLDivElement | null>(null);
   const syncingRef = useRef<"left" | "right" | null>(null);
-
-  if (fullRows.length > 0) {
-    return <SplitFullFileViewer rows={fullRows} />;
-  }
-
-  if (!hunks || hunks.length === 0) {
-    return <DiffPlaceholder>No differences found.</DiffPlaceholder>;
-  }
+  const [rowOverview, setRowOverview] = useState<Array<{ index: number; kind: "add" | "del" }>>([]);
+  const [rowCount, setRowCount] = useState(0);
 
   const syncScroll = (source: "left" | "right") => {
     const left = leftRef.current;
@@ -409,97 +402,133 @@ function SplitDiffViewer({ hunks, fullRows }: { hunks: DiffHunk[]; fullRows: Spl
     }
   };
 
-  return (
-    <div className="diff-body split-diff">
-      <div ref={leftRef} className="side" onScroll={() => syncScroll("left")}>
-        <div className="side-content">
-          {hunks.map((h, hi) => (
-            <Fragment key={hi}>
-              <div className="dline hunk">
-                <div className="ln">···</div>
-                <div className="code">{h.header}</div>
-              </div>
-              {buildPairs(h).map((p, pi) =>
-                p.left ? (
-                  <div key={pi} className={`dline ${p.left.kind === "ctx" ? "ctx" : "del"}`}>
-                    <div className="ln">{p.left.oldLn ?? ""}</div>
-                    <div
-                      className="code"
-                      dangerouslySetInnerHTML={{ __html: tokenize(p.left.text) }}
-                    />
-                  </div>
-                ) : (
-                  <div key={pi} className="dline empty">
-                    <div className="ln"> </div>
-                    <div className="code"> </div>
-                  </div>
-                )
-              )}
-            </Fragment>
-          ))}
-        </div>
-      </div>
+  useEffect(() => {
+    if (fullRows.length > 0) {
+      const overview: Array<{ index: number; kind: "add" | "del" }> = [];
+      fullRows.forEach((row, index) => {
+        if (row.leftKind === "del") overview.push({ index, kind: "del" });
+        if (row.rightKind === "add") overview.push({ index, kind: "add" });
+      });
+      setRowOverview(overview);
+      setRowCount(fullRows.length);
+      return;
+    }
 
-      <div ref={rightRef} className="side" onScroll={() => syncScroll("right")}>
-        <div className="side-content">
-          {hunks.map((h, hi) => (
-            <Fragment key={hi}>
-              <div className="dline hunk">
-                <div className="ln">···</div>
-                <div className="code">{h.header}</div>
+    const overview: Array<{ index: number; kind: "add" | "del" }> = [];
+    let index = 0;
+    hunks.forEach((h) => {
+      index += 1;
+      buildPairs(h).forEach((pair) => {
+        if (pair.left?.kind === "del") overview.push({ index, kind: "del" });
+        if (pair.right?.kind === "add") overview.push({ index, kind: "add" });
+        index += 1;
+      });
+    });
+    setRowOverview(overview);
+    setRowCount(index);
+  }, [hunks, fullRows]);
+
+  useEffect(() => {
+    const right = rightRef.current;
+    const left = leftRef.current;
+    if (!right || !left || rowOverview.length === 0) return;
+
+    const firstIndex = rowOverview[0].index;
+    const targetTop = Math.max(0, firstIndex * 18 - right.clientHeight / 2);
+    right.scrollTop = targetTop;
+    left.scrollTop = targetTop;
+  }, [rowOverview]);
+
+  if (fullRows.length === 0 && (!hunks || hunks.length === 0)) {
+    return <DiffPlaceholder>No differences found.</DiffPlaceholder>;
+  }
+
+  return (
+    <div className="diff-view-shell">
+      <div className="diff-body split-diff">
+        {fullRows.length > 0 ? (
+          <SplitFullFileViewer rows={fullRows} leftRef={leftRef} rightRef={rightRef} onSyncScroll={syncScroll} />
+        ) : (
+          <>
+            <div ref={leftRef} className="side" onScroll={() => syncScroll("left")}>
+              <div className="side-content">
+                {hunks.map((h, hi) => (
+                  <Fragment key={hi}>
+                    <div className="dline hunk">
+                      <div className="ln">···</div>
+                      <div className="code">{h.header}</div>
+                    </div>
+                    {buildPairs(h).map((p, pi) =>
+                      p.left ? (
+                        <div key={pi} className={`dline ${p.left.kind === "ctx" ? "ctx" : "del"}`}>
+                          <div className="ln">{p.left.oldLn ?? ""}</div>
+                          <div
+                            className="code"
+                            dangerouslySetInnerHTML={{ __html: tokenize(p.left.text) }}
+                          />
+                        </div>
+                      ) : (
+                        <div key={pi} className="dline empty">
+                          <div className="ln"> </div>
+                          <div className="code"> </div>
+                        </div>
+                      )
+                    )}
+                  </Fragment>
+                ))}
               </div>
-              {buildPairs(h).map((p, pi) =>
-                p.right ? (
-                  <div key={pi} className={`dline ${p.right.kind === "ctx" ? "ctx" : "add"}`}>
-                    <div className="ln">{p.right.newLn ?? ""}</div>
-                    <div
-                      className="code"
-                      dangerouslySetInnerHTML={{ __html: tokenize(p.right.text) }}
-                    />
-                  </div>
-                ) : (
-                  <div key={pi} className="dline empty">
-                    <div className="ln"> </div>
-                    <div className="code"> </div>
-                  </div>
-                )
-              )}
-            </Fragment>
-          ))}
-        </div>
+            </div>
+
+            <div ref={rightRef} className="side" onScroll={() => syncScroll("right")}>
+              <div className="side-content">
+                {hunks.map((h, hi) => (
+                  <Fragment key={hi}>
+                    <div className="dline hunk">
+                      <div className="ln">···</div>
+                      <div className="code">{h.header}</div>
+                    </div>
+                    {buildPairs(h).map((p, pi) =>
+                      p.right ? (
+                        <div key={pi} className={`dline ${p.right.kind === "ctx" ? "ctx" : "add"}`}>
+                          <div className="ln">{p.right.newLn ?? ""}</div>
+                          <div
+                            className="code"
+                            dangerouslySetInnerHTML={{ __html: tokenize(p.right.text) }}
+                          />
+                        </div>
+                      ) : (
+                        <div key={pi} className="dline empty">
+                          <div className="ln"> </div>
+                          <div className="code"> </div>
+                        </div>
+                      )
+                    )}
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
+      <DiffOverviewRail rows={rowOverview} totalRows={rowCount} />
     </div>
   );
 }
 
-function SplitFullFileViewer({ rows }: { rows: SplitDiffRow[] }) {
-  const leftRef = useRef<HTMLDivElement | null>(null);
-  const rightRef = useRef<HTMLDivElement | null>(null);
-  const syncingRef = useRef<"left" | "right" | null>(null);
-
-  const syncScroll = (source: "left" | "right") => {
-    const left = leftRef.current;
-    const right = rightRef.current;
-    if (!left || !right) return;
-
-    if (syncingRef.current && syncingRef.current !== source) {
-      syncingRef.current = null;
-      return;
-    }
-
-    syncingRef.current = source;
-    if (source === "left") {
-      right.scrollLeft = left.scrollLeft;
-      right.scrollTop = left.scrollTop;
-    } else {
-      left.scrollLeft = right.scrollLeft;
-      left.scrollTop = right.scrollTop;
-    }
-  };
-
+function SplitFullFileViewer({
+  rows,
+  leftRef,
+  rightRef,
+  onSyncScroll,
+}: {
+  rows: SplitDiffRow[];
+  leftRef: React.MutableRefObject<HTMLDivElement | null>;
+  rightRef: React.MutableRefObject<HTMLDivElement | null>;
+  onSyncScroll: (source: "left" | "right") => void;
+}) {
   return (
-    <div className="diff-body split-diff">
-      <div ref={leftRef} className="side" onScroll={() => syncScroll("left")}>
+    <>
+      <div ref={leftRef} className="side" onScroll={() => onSyncScroll("left")}>
         <div className="side-content">
           {rows.map((row, i) => (
             <div key={i} className={`dline ${row.leftKind}`}>
@@ -510,7 +539,7 @@ function SplitFullFileViewer({ rows }: { rows: SplitDiffRow[] }) {
         </div>
       </div>
 
-      <div ref={rightRef} className="side" onScroll={() => syncScroll("right")}>
+      <div ref={rightRef} className="side" onScroll={() => onSyncScroll("right")}>
         <div className="side-content">
           {rows.map((row, i) => (
             <div key={i} className={`dline ${row.rightKind}`}>
@@ -520,7 +549,7 @@ function SplitFullFileViewer({ rows }: { rows: SplitDiffRow[] }) {
           ))}
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -542,28 +571,82 @@ function FileViewer({ text }: { text: string }) {
 }
 
 function InlineDiffViewer({ hunks }: { hunks: DiffHunk[] }) {
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const [rowOverview, setRowOverview] = useState<Array<{ index: number; kind: "add" | "del" }>>([]);
+  const [rowCount, setRowCount] = useState(0);
+
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+
+    const firstChange = body.querySelector<HTMLElement>(".dline.add, .dline.del");
+    if (!firstChange) return;
+
+    const targetTop = Math.max(0, firstChange.offsetTop - body.clientHeight / 2 + firstChange.clientHeight / 2);
+    body.scrollTop = targetTop;
+  }, [hunks]);
+
+  useEffect(() => {
+    const overview: Array<{ index: number; kind: "add" | "del" }> = [];
+    let index = 0;
+    hunks.forEach((h) => {
+      index += 1;
+      h.lines.forEach((line) => {
+        if (line.kind === "add" || line.kind === "del") overview.push({ index, kind: line.kind });
+        index += 1;
+      });
+    });
+    setRowOverview(overview);
+    setRowCount(index);
+  }, [hunks]);
+
   if (!hunks || hunks.length === 0) {
     return <DiffPlaceholder>No differences found.</DiffPlaceholder>;
   }
   return (
-    <div className="diff-body inline-diff">
-      {hunks.map((h, hi) => (
-        <Fragment key={hi}>
-          <div className="dline hunk">
-            <div className="ln">···</div>
-            <div className="ln-r">···</div>
-            <div className="code inline-hunk-header">
-              {h.header}
+    <div className="diff-view-shell">
+      <div ref={bodyRef} className="diff-body inline-diff">
+        {hunks.map((h, hi) => (
+          <Fragment key={hi}>
+            <div className="dline hunk">
+              <div className="ln">···</div>
+              <div className="ln-r">···</div>
+              <div className="code inline-hunk-header">
+                {h.header}
+              </div>
             </div>
-          </div>
-          {h.lines.map((l, li) => (
-            <div key={li} className={`dline ${l.kind}`}>
-              <div className="ln">{l.oldLn ?? ""}</div>
-              <div className="ln-r">{l.newLn ?? ""}</div>
-              <div className="code" dangerouslySetInnerHTML={{ __html: tokenize(l.text) }} />
-            </div>
-          ))}
-        </Fragment>
+            {h.lines.map((l, li) => (
+              <div key={li} className={`dline ${l.kind}`}>
+                <div className="ln">{l.oldLn ?? ""}</div>
+                <div className="ln-r">{l.newLn ?? ""}</div>
+                <div className="code" dangerouslySetInnerHTML={{ __html: tokenize(l.text) }} />
+              </div>
+            ))}
+          </Fragment>
+        ))}
+      </div>
+      <DiffOverviewRail rows={rowOverview} totalRows={rowCount} />
+    </div>
+  );
+}
+
+function DiffOverviewRail({
+  rows,
+  totalRows,
+}: {
+  rows: Array<{ index: number; kind: "add" | "del" }>;
+  totalRows: number;
+}) {
+  if (!rows.length || totalRows <= 0) return null;
+
+  return (
+    <div className="diff-overview-rail" aria-hidden="true">
+      {rows.map((row, index) => (
+        <span
+          key={`${row.kind}-${row.index}-${index}`}
+          className={`diff-overview-marker ${row.kind}`}
+          style={{ top: `${(row.index / totalRows) * 100}%` }}
+        />
       ))}
     </div>
   );

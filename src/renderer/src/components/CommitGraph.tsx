@@ -2,14 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import type { Commit, CommitRef } from "../data/types";
 import { STORAGE_KEYS } from "../constants/storageKeys";
+import { dateGroupLabel, toDateGroup, type DateGroup } from "../utils/date";
 import {
   IconCaretDown,
   IconCloud,
   IconGear,
   IconMonitor,
-  IconPlus,
   IconTag,
 } from "./icons";
+import { FileStatusIcon } from "./FileStatusIcon";
 
 const LANE_PALETTE = [
   "#5adbc8",
@@ -24,51 +25,6 @@ const laneColor = (lane: number) => LANE_PALETTE[lane % LANE_PALETTE.length];
 const ROW_H = 30;
 const NODE_R = 7;
 const LANE_X = (lane: number) => 14 + lane * 18;
-
-type DateGroup = string;
-
-function startOfLocalDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function diffCalendarDays(from: Date, to: Date): number {
-  const dayMs = 24 * 60 * 60 * 1000;
-  return Math.floor((startOfLocalDay(from).getTime() - startOfLocalDay(to).getTime()) / dayMs);
-}
-
-function monthDiff(now: Date, date: Date): number {
-  return (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
-}
-
-function toDateGroup(dateISO: string, now: Date): DateGroup {
-  const date = new Date(dateISO);
-  if (Number.isNaN(date.getTime())) return "m-unknown";
-  if (now.getFullYear() === date.getFullYear() && now.getMonth() === date.getMonth()) {
-    const dayDiff = Math.max(0, diffCalendarDays(now, date));
-    const weeks = Math.floor(dayDiff / 7);
-    if (weeks >= 1) return `w-${weeks}`;
-  }
-  return `m-${Math.max(0, monthDiff(now, date))}`;
-}
-
-function dateGroupLabel(group: DateGroup): string {
-  if (group.startsWith("w-")) {
-    const weeks = Number(group.slice(2));
-    if (!Number.isFinite(weeks) || weeks < 1) return "Older";
-    if (weeks === 1) return "a week ago";
-    return `${weeks} weeks ago`;
-  }
-  if (!group.startsWith("m-")) return "Older";
-  const months = Number(group.slice(2));
-  if (!Number.isFinite(months) || months < 0) return "Older";
-  if (months < 12) {
-    if (months === 1) return "a month ago";
-    return `${months} months ago`;
-  }
-  const years = Math.floor(months / 12);
-  if (years === 1) return "a year ago";
-  return `${years} years ago`;
-}
 
 function readStoredNumber(key: string, fallback: number): number {
   try {
@@ -674,8 +630,31 @@ function CommitRow({ commit, selected, dateLabel, onSelect, onCheckoutRef, onRef
         {c.isWip ? (
           <>
             <span className="wip-input">{c.title}</span>
-            <span className="add-count">
-              <IconPlus size={11} /> {c.additions}
+            <span className="wip-counts">
+              {!!c.wipCounts?.added && (
+                <span className="wip-count-item">
+                  <FileStatusIcon status="added" size={11} />
+                  <span className="wip-count-number add">{c.wipCounts.added}</span>
+                </span>
+              )}
+              {!!c.wipCounts?.modified && (
+                <span className="wip-count-item">
+                  <FileStatusIcon status="modified" size={11} />
+                  <span className="wip-count-number mod">{c.wipCounts.modified}</span>
+                </span>
+              )}
+              {!!c.wipCounts?.deleted && (
+                <span className="wip-count-item">
+                  <FileStatusIcon status="deleted" size={11} />
+                  <span className="wip-count-number del">{c.wipCounts.deleted}</span>
+                </span>
+              )}
+              {!!c.wipCounts?.renamed && (
+                <span className="wip-count-item">
+                  <FileStatusIcon status="renamed" size={11} />
+                  <span className="wip-count-number ren">{c.wipCounts.renamed}</span>
+                </span>
+              )}
             </span>
           </>
         ) : c.isStash ? (

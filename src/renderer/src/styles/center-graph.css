@@ -248,14 +248,34 @@
   font-style: italic;
   font-size: 12px;
 }
-.wip-row .add-count {
+.wip-row .wip-counts {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  color: var(--add);
+  gap: 8px;
   font-size: 12px;
-  font-weight: 600;
+  font-style: normal;
+  color: var(--text-3);
 }
+
+.wip-row .wip-count-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wip-row .wip-count-number {
+  font-weight: 500;
+}
+
+.wip-row .wip-count-number.add { color: var(--add); }
+.wip-row .wip-count-number.mod { color: var(--mod); }
+.wip-row .wip-count-number.del { color: var(--del); }
+.wip-row .wip-count-number.ren { color: var(--blue); }
+
+.wip-row .wip-count-item .status-icon.add { color: var(--add); }
+.wip-row .wip-count-item .status-icon.mod { color: var(--mod); }
+.wip-row .wip-count-item .status-icon.del { color: var(--del); }
+.wip-row .wip-count-item .status-icon.ren { color: var(--blue); }
 
 .stash-row .commit-row-cell.msg {
   font-style: italic;

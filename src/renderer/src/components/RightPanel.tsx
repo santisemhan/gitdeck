@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import type { ChangedFile, Commit } from "../data/types";
-import { formatDate, initials, splitPath, summarizeCounts } from "../data/mock";
+import { initials, splitPath, summarizeCounts } from "../data/mock";
+import { formatDate } from "../utils/date";
 import { FileStatusIcon } from "./FileStatusIcon";
 import {
-  IconCloudArrowUp,
   IconCommit,
   IconTrash,
 } from "./icons";
@@ -354,7 +354,7 @@ function LocalChangesPanel({
             aria-label="discard all"
             onClick={onRequestDiscardAll}
           >
-            <IconTrash size={14} />
+            <IconTrash size={16} />
           </button>
         )}
         <span className="title">
@@ -499,17 +499,9 @@ function CommitForm({ repoPath, stagedCount, onCommit, height, onStartResize }: 
       <div className="ftabs">
         <button className="ftab active" title="Commit staged changes">
           <span className="ico">
-            <IconCommit size={13} />
+            <IconCommit size={15} />
           </span>
           Commit
-        </button>
-        <button className="ftab ftab-right" title="Push changes to remote">
-          <span className="ico">
-            <IconCloudArrowUp size={13} />
-          </span>
-        </button>
-        <button className="ftab" title="Stash">
-          <span className="ico ico-small">⊙</span>
         </button>
       </div>
 
@@ -541,7 +533,7 @@ function CommitForm({ repoPath, stagedCount, onCommit, height, onStartResize }: 
         onClick={submit}
         title={!canCommit ? "Stage files and write a summary first" : "Commit staged changes"}
       >
-        <IconCommit size={14} />
+        <IconCommit size={16} />
         {stagedCount > 0 ? `Commit ${stagedCount} file${stagedCount === 1 ? "" : "s"}` : "Stage Changes to Commit"}
       </button>
     </div>
