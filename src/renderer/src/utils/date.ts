@@ -16,6 +16,11 @@ export function monthDiff(now: Date, date: Date): number {
 export function toDateGroup(dateISO: string, now: Date): DateGroup {
   const date = new Date(dateISO);
   if (Number.isNaN(date.getTime())) return "m-unknown";
+  const diffMs = now.getTime() - date.getTime();
+  if (diffMs >= 0) {
+    const hours = Math.floor(diffMs / (60 * 60 * 1000));
+    if (hours >= 1 && hours < 24) return `h-${hours}`;
+  }
   if (now.getFullYear() === date.getFullYear() && now.getMonth() === date.getMonth()) {
     const dayDiff = Math.max(0, diffCalendarDays(now, date));
     const weeks = Math.floor(dayDiff / 7);
@@ -25,6 +30,12 @@ export function toDateGroup(dateISO: string, now: Date): DateGroup {
 }
 
 export function dateGroupLabel(group: DateGroup): string {
+  if (group.startsWith("h-")) {
+    const hours = Number(group.slice(2));
+    if (!Number.isFinite(hours) || hours < 1) return "Older";
+    if (hours === 1) return "1 hour ago";
+    return `${hours} hours ago`;
+  }
   if (group.startsWith("w-")) {
     const weeks = Number(group.slice(2));
     if (!Number.isFinite(weeks) || weeks < 1) return "Older";
