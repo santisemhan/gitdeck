@@ -8,6 +8,7 @@ import {
   IconGear,
   IconMonitor,
   IconPlus,
+  IconTag,
 } from "./icons";
 
 const LANE_PALETTE = [
@@ -23,6 +24,51 @@ const laneColor = (lane: number) => LANE_PALETTE[lane % LANE_PALETTE.length];
 const ROW_H = 30;
 const NODE_R = 7;
 const LANE_X = (lane: number) => 14 + lane * 18;
+
+type DateGroup = string;
+
+function startOfLocalDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function diffCalendarDays(from: Date, to: Date): number {
+  const dayMs = 24 * 60 * 60 * 1000;
+  return Math.floor((startOfLocalDay(from).getTime() - startOfLocalDay(to).getTime()) / dayMs);
+}
+
+function monthDiff(now: Date, date: Date): number {
+  return (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
+}
+
+function toDateGroup(dateISO: string, now: Date): DateGroup {
+  const date = new Date(dateISO);
+  if (Number.isNaN(date.getTime())) return "m-unknown";
+  if (now.getFullYear() === date.getFullYear() && now.getMonth() === date.getMonth()) {
+    const dayDiff = Math.max(0, diffCalendarDays(now, date));
+    const weeks = Math.floor(dayDiff / 7);
+    if (weeks >= 1) return `w-${weeks}`;
+  }
+  return `m-${Math.max(0, monthDiff(now, date))}`;
+}
+
+function dateGroupLabel(group: DateGroup): string {
+  if (group.startsWith("w-")) {
+    const weeks = Number(group.slice(2));
+    if (!Number.isFinite(weeks) || weeks < 1) return "Older";
+    if (weeks === 1) return "a week ago";
+    return `${weeks} weeks ago`;
+  }
+  if (!group.startsWith("m-")) return "Older";
+  const months = Number(group.slice(2));
+  if (!Number.isFinite(months) || months < 0) return "Older";
+  if (months < 12) {
+    if (months === 1) return "a month ago";
+    return `${months} months ago`;
+  }
+  const years = Math.floor(months / 12);
+  if (years === 1) return "a year ago";
+  return `${years} years ago`;
+}
 
 function readStoredNumber(key: string, fallback: number): number {
   try {
@@ -77,6 +123,29 @@ export function CommitGraph({
   onCherryPick,
   onRevertCommit,
 }: CommitGraphProps) {
+  const now = useMemo(() => new Date(), [commits]);
+  const rows = useMemo(() => {
+    const result: Array<{ commit: Commit; dateLabel?: string }> = [];
+    let lastGroup: DateGroup | null = null;
+
+    for (const commit of commits) {
+      const group = toDateGroup(commit.dateISO, now);
+      const nextLabel = dateGroupLabel(group);
+      const dateLabel = group !== lastGroup && nextLabel !== "0 months ago" ? nextLabel : undefined;
+      result.push({ commit, dateLabel });
+      if (group !== lastGroup) {
+        lastGroup = group;
+      }
+    }
+
+    return result;
+  }, [commits, now]);
+
+  const commitYById = useMemo(
+    () => Object.fromEntries(commits.map((c, i) => [c.id, i * ROW_H + ROW_H / 2])),
+    [commits]
+  );
+
   const [columns, setColumns] = useState(() => ({
     labels: Math.max(140, readStoredNumber(STORAGE_KEYS.commitGraphLabelsWidth, 200)),
     graph: Math.max(60, readStoredNumber(STORAGE_KEYS.commitGraphWidth, 60)),
@@ -135,9 +204,9 @@ export function CommitGraph({
   }, [columns.graph]);
 
   const byId = useMemo(() => {
-    const m: Record<string, Commit & { rowIdx: number }> = {};
-    commits.forEach((c, i) => {
-      m[c.id] = { ...c, rowIdx: i };
+    const m: Record<string, Commit> = {};
+    commits.forEach((c) => {
+      m[c.id] = c;
     });
     return m;
   }, [commits]);
@@ -146,30 +215,33 @@ export function CommitGraph({
     const result: {
       fromLane: number;
       toLane: number;
-      fromRow: number;
-      toRow: number;
+      fromY: number;
+      toY: number;
       color: string;
       dashed: boolean;
     }[] = [];
-    commits.forEach((c, i) => {
+    commits.forEach((c) => {
       c.parents.forEach((pid, parentIdx) => {
         const parent = byId[pid];
         if (!parent) return;
+        const fromY = commitYById[c.id];
+        const toY = commitYById[parent.id];
+        if (!fromY || !toY) return;
         const fromLane = c.lane;
         const toLane = parent.lane;
         const isMergeParent = c.parents.length > 1 && parentIdx > 0;
         result.push({
           fromLane,
           toLane,
-          fromRow: i,
-          toRow: parent.rowIdx,
+          fromY,
+          toY,
           color: laneColor(isMergeParent ? toLane : fromLane),
           dashed: !!c.isStash,
         });
       });
     });
     return result;
-  }, [commits, byId]);
+  }, [commits, byId, commitYById]);
 
   const [branchCtxMenu, setBranchCtxMenu] = useState<BranchCtxMenu | null>(null);
   const [stashCtxMenu,  setStashCtxMenu]  = useState<StashCtxMenu  | null>(null);
@@ -279,8 +351,8 @@ export function CommitGraph({
             {edges.map((e, i) => {
               const fromX = LANE_X(e.fromLane);
               const toX = LANE_X(e.toLane);
-              const fromY = e.fromRow * ROW_H + ROW_H / 2;
-              const toY = e.toRow * ROW_H + ROW_H / 2;
+              const fromY = e.fromY;
+              const toY = e.toY;
               const dy = toY - fromY;
 
               if (fromX === toX) {
@@ -332,9 +404,9 @@ export function CommitGraph({
               );
             })}
 
-            {commits.map((c, i) => {
+            {commits.map((c) => {
               const cx = LANE_X(c.lane);
-              const cy = i * ROW_H + ROW_H / 2;
+              const cy = commitYById[c.id] ?? ROW_H / 2;
               const color = laneColor(c.lane);
               const sel = c.id === selectedCommitId;
 
@@ -398,18 +470,22 @@ export function CommitGraph({
             </svg>
 
             <div className="graph-list" role="list">
-              {commits.map((c) => (
-                <CommitRow
-                  key={c.id}
-                  commit={c}
-                  selected={c.id === selectedCommitId}
-                  onSelect={() => (c.isWip ? onSelectWip() : onSelectCommit(c))}
-                  onCheckoutRef={onCheckoutRef}
-                  onRefContextMenu={handleRefContextMenu}
-                  onStashContextMenu={handleStashContextMenu}
-                  onCommitContextMenu={handleCommitContextMenu}
-                />
-              ))}
+              {rows.map((row) => {
+                const c = row.commit;
+                return (
+                  <CommitRow
+                    key={c.id}
+                    commit={c}
+                    selected={c.id === selectedCommitId}
+                    dateLabel={row.dateLabel}
+                    onSelect={() => (c.isWip ? onSelectWip() : onSelectCommit(c))}
+                    onCheckoutRef={onCheckoutRef}
+                    onRefContextMenu={handleRefContextMenu}
+                    onStashContextMenu={handleStashContextMenu}
+                    onCommitContextMenu={handleCommitContextMenu}
+                  />
+                );
+              })}
             </div>
           </div>
         </div>
@@ -547,6 +623,7 @@ export function CommitGraph({
 interface CommitRowProps {
   commit: Commit;
   selected: boolean;
+  dateLabel?: string;
   onSelect: () => void;
   onCheckoutRef?: (refName: string) => void;
   onRefContextMenu?: (refName: string, isCurrent: boolean, isRemote: boolean, x: number, y: number) => void;
@@ -554,7 +631,7 @@ interface CommitRowProps {
   onCommitContextMenu?: (hash: string, title: string, x: number, y: number) => void;
 }
 
-function CommitRow({ commit, selected, onSelect, onCheckoutRef, onRefContextMenu, onStashContextMenu, onCommitContextMenu }: CommitRowProps) {
+function CommitRow({ commit, selected, dateLabel, onSelect, onCheckoutRef, onRefContextMenu, onStashContextMenu, onCommitContextMenu }: CommitRowProps) {
   const c = commit;
 
   return (
@@ -562,6 +639,7 @@ function CommitRow({ commit, selected, onSelect, onCheckoutRef, onRefContextMenu
       className={
         "commit-row" +
         (selected ? " selected" : "") +
+        (dateLabel ? " with-date-divider" : "") +
         (c.isWip ? " wip-row" : "") +
         (c.isStash ? " stash-row" : "")
       }
@@ -592,6 +670,7 @@ function CommitRow({ commit, selected, onSelect, onCheckoutRef, onRefContextMenu
       <div className="commit-row-cell graph" />
 
       <div className="commit-row-cell msg">
+        {dateLabel && <span className="commit-date-chip">{dateLabel}</span>}
         {c.isWip ? (
           <>
             <span className="wip-input">{c.title}</span>
@@ -636,8 +715,9 @@ function RefPill({
     );
   }
 
-  const hasLocal = refData.hasLocal ?? !refData.remote;
-  const hasRemote = !!refData.remote;
+  const isTag = refData.kind === "tag";
+  const hasLocal = !isTag && (refData.hasLocal ?? !refData.remote);
+  const hasRemote = !isTag && !!refData.remote;
   // A pill is "remote-only" when there is no local branch — used to hide Rename/Delete
   const remoteOnly = hasRemote && !hasLocal;
 
@@ -663,6 +743,7 @@ function RefPill({
       }}
     >
       <span className="pname">{refData.name}</span>
+      {isTag && <IconTag size={10} className="icon-muted-shrink" />}
       {hasLocal && <IconMonitor size={10} className="icon-muted-shrink" />}
       {hasRemote && <IconCloud size={10} className="icon-muted-shrink" />}
       {first && refData.current && (

@@ -400,6 +400,7 @@
   align-items: stretch;
   gap: 4px;
   margin-left: auto;
+  margin-right: auto;
 }
 .toolbar-action {
   display: flex;
