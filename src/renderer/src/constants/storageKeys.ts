@@ -8,6 +8,10 @@ export const STORAGE_KEYS = {
   rightPanelCommitHeight: `${UI_NAMESPACE}.rightPanel.commitHeight`,
   commitGraphLabelsWidth: `${UI_NAMESPACE}.commitGraph.labelsWidth`,
   commitGraphWidth: `${UI_NAMESPACE}.commitGraph.graphWidth`,
+  leftPanelCollapsed: `${UI_NAMESPACE}.leftPanel.collapsed`,
+  rightPanelCollapsed: `${UI_NAMESPACE}.rightPanel.collapsed`,
+  leftPanelWidth: `${UI_NAMESPACE}.leftPanel.width`,
+  rightPanelWidth: `${UI_NAMESPACE}.rightPanel.width`,
 } as const;
 
 function normalizeRepoPath(repoPath: string): string {

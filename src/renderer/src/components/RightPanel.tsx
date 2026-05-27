@@ -3,49 +3,11 @@ import type { ChangedFile, Commit } from "../data/types";
 import { initials, splitPath, summarizeCounts } from "../data/mock";
 import { formatDate } from "../utils/date";
 import { FileStatusIcon } from "./FileStatusIcon";
-import {
-  IconCommit,
-  IconTrash,
-} from "./icons";
+import { IconCaretLeft, IconCaretRight, IconTrash } from "./icons";
 import { PanelSection } from "./PanelSection";
-import { getCommitDraftStorageKeys, STORAGE_KEYS } from "../constants/storageKeys";
-
-function readDraftValue(key: string): string {
-  try {
-    return localStorage.getItem(key) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function writeDraftValue(key: string, value: string): void {
-  try {
-    if (value.length > 0) {
-      localStorage.setItem(key, value);
-      return;
-    }
-    localStorage.removeItem(key);
-  } catch {
-  }
-}
-
-function readStoredNumber(key: string, fallback: number): number {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeStoredNumber(key: string, value: number): void {
-  try {
-    localStorage.setItem(key, String(value));
-  } catch {
-  }
-}
+import { CommitForm } from "./CommitForm";
+import { STORAGE_KEYS } from "../constants/storageKeys";
+import { readStoredNumber, writeStoredNumber } from "../utils/storage";
 
 function shouldIgnoreArrowNavigation(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -105,11 +67,48 @@ interface RightPanelProps {
   onRequestDiscardAll: () => void;
   onCommit: (summary: string, description: string) => void;
   onViewLocalChanges: () => void;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
+  onStartResize?: (event: ReactMouseEvent<HTMLDivElement>) => void;
 }
 
 export function RightPanel(props: RightPanelProps) {
+  if (props.collapsed) {
+    return (
+      <aside className="panel-rail right" aria-label="Right panel collapsed">
+        <button
+          type="button"
+          title="Expand right panel"
+          aria-label="Expand right panel"
+          onClick={props.onToggleCollapsed}
+        >
+          <IconCaretLeft size={14} />
+        </button>
+      </aside>
+    );
+  }
   return (
     <div className="rpanel">
+      {props.onStartResize && (
+        <div
+          className="panel-resize-handle panel-resize-handle-left"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize right panel"
+          onMouseDown={props.onStartResize}
+        />
+      )}
+      {props.onToggleCollapsed && (
+        <button
+          type="button"
+          className="panel-collapse-btn rpanel-collapse-btn"
+          title="Collapse right panel"
+          aria-label="Collapse right panel"
+          onClick={props.onToggleCollapsed}
+        >
+          <IconCaretRight size={14} />
+        </button>
+      )}
       {props.mode === "localChanges" ? (
         <LocalChangesPanel
           repoPath={props.repoPath}
@@ -453,90 +452,6 @@ function LocalChangesPanel({
         onStartResize={startCommitResize}
       />
     </>
-  );
-}
-
-interface CommitFormProps {
-  repoPath: string;
-  stagedCount: number;
-  onCommit: (summary: string, description: string) => void;
-  height: number;
-  onStartResize: (event: ReactMouseEvent<HTMLDivElement>) => void;
-}
-
-function CommitForm({ repoPath, stagedCount, onCommit, height, onStartResize }: CommitFormProps) {
-  const storageKeys = useMemo(() => getCommitDraftStorageKeys(repoPath), [repoPath]);
-  const [summary, setSummary] = useState(() => readDraftValue(storageKeys.summary));
-  const [desc, setDesc] = useState(() => readDraftValue(storageKeys.description));
-  const maxLen = 72;
-  const remaining = maxLen - summary.length;
-  const canCommit = stagedCount > 0 && summary.trim().length > 0;
-
-  useEffect(() => {
-    setSummary(readDraftValue(storageKeys.summary));
-    setDesc(readDraftValue(storageKeys.description));
-  }, [storageKeys]);
-
-  useEffect(() => {
-    writeDraftValue(storageKeys.summary, summary);
-  }, [storageKeys.summary, summary]);
-
-  useEffect(() => {
-    writeDraftValue(storageKeys.description, desc);
-  }, [storageKeys.description, desc]);
-
-  const submit = () => {
-    if (!canCommit) return;
-    onCommit(summary.trim(), desc.trim());
-    setSummary("");
-    setDesc("");
-  };
-
-  return (
-    <div className="commit-form-wrap" style={{ height: `${height}px`, flex: `0 0 ${height}px` }}>
-      <div className="splitter" title="Drag to resize" onMouseDown={onStartResize} />
-
-      <div className="ftabs">
-        <button className="ftab active" title="Commit staged changes">
-          <span className="ico">
-            <IconCommit size={15} />
-          </span>
-          Commit
-        </button>
-      </div>
-
-      <div className="summary">
-        <input
-          type="text"
-          placeholder="Commit summary"
-          value={summary}
-          maxLength={maxLen + 20}
-          onChange={(e) => setSummary(e.target.value)}
-        />
-        <span className={"counter" + (remaining < 10 ? " danger" : "")}>
-          {remaining}
-        </span>
-      </div>
-
-      <div className="desc">
-        <textarea
-          rows={2}
-          placeholder="Description"
-          value={desc}
-          onChange={(e) => setDesc(e.target.value)}
-        />
-      </div>
-
-      <button
-        className="submit"
-        disabled={!canCommit}
-        onClick={submit}
-        title={!canCommit ? "Stage files and write a summary first" : "Commit staged changes"}
-      >
-        <IconCommit size={16} />
-        {stagedCount > 0 ? `Commit ${stagedCount} file${stagedCount === 1 ? "" : "s"}` : "Stage Changes to Commit"}
-      </button>
-    </div>
   );
 }
 

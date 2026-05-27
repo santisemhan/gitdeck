@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import type { CSSProperties } from "react";
 import type { Commit, CommitRef } from "../data/types";
 import { STORAGE_KEYS } from "../constants/storageKeys";
 import { dateGroupLabel, toDateGroup, type DateGroup } from "../utils/date";
+import { useContextMenu } from "../hooks/useContextMenu";
+import { useResizableColumns } from "../hooks/useResizableColumns";
+import {
+  computeGraphEdges,
+  LANE_X,
+  NODE_R,
+  ROW_H,
+  laneColor,
+} from "../utils/graphEdges";
 import {
   IconCaretDown,
   IconCloud,
@@ -11,38 +20,6 @@ import {
   IconTag,
 } from "./icons";
 import { FileStatusIcon } from "./FileStatusIcon";
-
-const LANE_PALETTE = [
-  "#5adbc8",
-  "#74b0f5",
-  "#e5a155",
-  "#b58cf5",
-  "#e26565",
-  "#f0c274",
-];
-const laneColor = (lane: number) => LANE_PALETTE[lane % LANE_PALETTE.length];
-
-const ROW_H = 30;
-const NODE_R = 7;
-const LANE_X = (lane: number) => 14 + lane * 18;
-
-function readStoredNumber(key: string, fallback: number): number {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) ? parsed : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeStoredNumber(key: string, value: number): void {
-  try {
-    localStorage.setItem(key, String(value));
-  } catch {
-  }
-}
 
 type BranchCtxMenu = { x: number; y: number; refName: string; isCurrent: boolean; isRemote: boolean };
 type StashCtxMenu  = { x: number; y: number; index: number; message: string };
@@ -62,6 +39,9 @@ interface CommitGraphProps {
   onStashDrop?: (index: number) => void;
   onCherryPick?: (hash: string) => void;
   onRevertCommit?: (hash: string) => void;
+  onLoadMore?: () => void;
+  loadingMore?: boolean;
+  historyDone?: boolean;
 }
 
 export function CommitGraph({
@@ -78,6 +58,9 @@ export function CommitGraph({
   onStashDrop,
   onCherryPick,
   onRevertCommit,
+  onLoadMore,
+  loadingMore = false,
+  historyDone = false,
 }: CommitGraphProps) {
   const now = useMemo(() => new Date(), [commits]);
   const rows = useMemo(() => {
@@ -102,12 +85,6 @@ export function CommitGraph({
     [commits]
   );
 
-  const [columns, setColumns] = useState(() => ({
-    labels: Math.max(140, readStoredNumber(STORAGE_KEYS.commitGraphLabelsWidth, 200)),
-    graph: Math.max(60, readStoredNumber(STORAGE_KEYS.commitGraphWidth, 60)),
-  }));
-  const resizeRef = useRef<{ key: "labels" | "graph"; startX: number; startWidth: number } | null>(null);
-
   const requiredGraphWidth = useMemo(() => {
     const maxLane = commits.reduce((max, commit) => Math.max(max, commit.lane), 0);
     return Math.max(60, LANE_X(maxLane) + NODE_R + 10);
@@ -115,155 +92,60 @@ export function CommitGraph({
 
   const minWidths = useMemo(
     () => ({ labels: 140, graph: requiredGraphWidth }),
-    [requiredGraphWidth]
+    [requiredGraphWidth],
   );
 
-  const startResize = useCallback(
-    (key: "labels" | "graph") => (event: ReactMouseEvent) => {
-      event.preventDefault();
-      resizeRef.current = { key, startX: event.clientX, startWidth: columns[key] };
+  const { widths: columns, startResize } = useResizableColumns({
+    keys: ["labels", "graph"] as const,
+    initial: { labels: 200, graph: 60 },
+    min: minWidths,
+    storageKeys: {
+      labels: STORAGE_KEYS.commitGraphLabelsWidth,
+      graph: STORAGE_KEYS.commitGraphWidth,
     },
-    [columns]
-  );
+  });
 
+  const edges = useMemo(() => computeGraphEdges(commits), [commits]);
+
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    const onPointerMove = (event: MouseEvent) => {
-      const active = resizeRef.current;
-      if (!active) return;
-      const nextWidth = Math.max(minWidths[active.key], active.startWidth + (event.clientX - active.startX));
-      setColumns((prev) => ({ ...prev, [active.key]: nextWidth }));
-    };
-    const stopResize = () => {
-      resizeRef.current = null;
-    };
-    window.addEventListener("mousemove", onPointerMove);
-    window.addEventListener("mouseup", stopResize);
-    return () => {
-      window.removeEventListener("mousemove", onPointerMove);
-      window.removeEventListener("mouseup", stopResize);
-    };
-  }, [minWidths]);
+    if (!onLoadMore) return;
+    if (historyDone || loadingMore) return;
+    const node = sentinelRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) onLoadMore();
+      },
+      { threshold: 0.1 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [onLoadMore, historyDone, loadingMore, commits.length]);
 
-  useEffect(() => {
-    setColumns((prev) => {
-      if (prev.graph >= requiredGraphWidth) return prev;
-      return { ...prev, graph: requiredGraphWidth };
-    });
-  }, [requiredGraphWidth]);
-
-  useEffect(() => {
-    writeStoredNumber(STORAGE_KEYS.commitGraphLabelsWidth, columns.labels);
-  }, [columns.labels]);
-
-  useEffect(() => {
-    writeStoredNumber(STORAGE_KEYS.commitGraphWidth, columns.graph);
-  }, [columns.graph]);
-
-  const byId = useMemo(() => {
-    const m: Record<string, Commit> = {};
-    commits.forEach((c) => {
-      m[c.id] = c;
-    });
-    return m;
-  }, [commits]);
-
-  const edges = useMemo(() => {
-    const result: {
-      fromLane: number;
-      toLane: number;
-      fromY: number;
-      toY: number;
-      color: string;
-      dashed: boolean;
-    }[] = [];
-    commits.forEach((c) => {
-      c.parents.forEach((pid, parentIdx) => {
-        const parent = byId[pid];
-        if (!parent) return;
-        const fromY = commitYById[c.id];
-        const toY = commitYById[parent.id];
-        if (!fromY || !toY) return;
-        const fromLane = c.lane;
-        const toLane = parent.lane;
-        const isMergeParent = c.parents.length > 1 && parentIdx > 0;
-        result.push({
-          fromLane,
-          toLane,
-          fromY,
-          toY,
-          color: laneColor(isMergeParent ? toLane : fromLane),
-          dashed: !!c.isStash,
-        });
-      });
-    });
-    return result;
-  }, [commits, byId, commitYById]);
-
-  const [branchCtxMenu, setBranchCtxMenu] = useState<BranchCtxMenu | null>(null);
-  const [stashCtxMenu,  setStashCtxMenu]  = useState<StashCtxMenu  | null>(null);
-  const [commitCtxMenu, setCommitCtxMenu] = useState<CommitCtxMenu | null>(null);
-
-  useEffect(() => {
-    if (!branchCtxMenu) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      setBranchCtxMenu(null);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [branchCtxMenu]);
-
-  useEffect(() => {
-    if (!stashCtxMenu) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      setStashCtxMenu(null);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [stashCtxMenu]);
-
-  useEffect(() => {
-    if (!commitCtxMenu) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      setCommitCtxMenu(null);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [commitCtxMenu]);
+  const { menu: branchCtxMenu, open: openBranchCtxMenu, close: closeBranchCtxMenu } = useContextMenu<BranchCtxMenu>();
+  const { menu: stashCtxMenu, open: openStashCtxMenu, close: closeStashCtxMenu } = useContextMenu<StashCtxMenu>();
+  const { menu: commitCtxMenu, open: openCommitCtxMenu, close: closeCommitCtxMenu } = useContextMenu<CommitCtxMenu>();
 
   const handleCommitContextMenu = useCallback(
     (hash: string, title: string, x: number, y: number) => {
-      setCommitCtxMenu({ x, y, hash, title });
+      openCommitCtxMenu({ x, y, hash, title });
     },
-    []
+    [openCommitCtxMenu]
   );
 
   const handleRefContextMenu = useCallback(
     (refName: string, isCurrent: boolean, isRemote: boolean, x: number, y: number) => {
-      setBranchCtxMenu({ x, y, refName, isCurrent, isRemote });
+      openBranchCtxMenu({ x, y, refName, isCurrent, isRemote });
     },
-    []
+    [openBranchCtxMenu]
   );
 
   const handleStashContextMenu = useCallback(
     (index: number, message: string, x: number, y: number) => {
-      setStashCtxMenu({ x, y, index, message });
+      openStashCtxMenu({ x, y, index, message });
     },
-    []
+    [openStashCtxMenu]
   );
 
   const totalH = commits.length * ROW_H;
@@ -443,6 +325,11 @@ export function CommitGraph({
                 );
               })}
             </div>
+            {onLoadMore && !historyDone && (
+              <div ref={sentinelRef} className="graph-sentinel" data-testid="graph-sentinel">
+                {loadingMore ? "Loading more commits…" : ""}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -461,7 +348,7 @@ export function CommitGraph({
               role="menuitem"
               onClick={() => {
                 onCreateBranchFrom?.(branchCtxMenu.refName);
-                setBranchCtxMenu(null);
+                closeBranchCtxMenu();
               }}
             >
               New branch from here
@@ -474,7 +361,7 @@ export function CommitGraph({
                   role="menuitem"
                   onClick={() => {
                     onRequestRenameBranch?.(branchCtxMenu.refName);
-                    setBranchCtxMenu(null);
+                    closeBranchCtxMenu();
                   }}
                 >
                   Rename
@@ -487,7 +374,7 @@ export function CommitGraph({
                   title={branchCtxMenu.isCurrent ? "Cannot delete the current branch" : undefined}
                   onClick={() => {
                     onDeleteBranch?.(branchCtxMenu.refName);
-                    setBranchCtxMenu(null);
+                    closeBranchCtxMenu();
                   }}
                 >
                   Delete branch
@@ -511,7 +398,7 @@ export function CommitGraph({
             role="menuitem"
             onClick={() => {
               onStashPop?.(stashCtxMenu.index);
-              setStashCtxMenu(null);
+              closeStashCtxMenu();
             }}
           >
             Pop
@@ -522,7 +409,7 @@ export function CommitGraph({
             role="menuitem"
             onClick={() => {
               onStashApply?.(stashCtxMenu.index);
-              setStashCtxMenu(null);
+              closeStashCtxMenu();
             }}
           >
             Apply
@@ -533,7 +420,7 @@ export function CommitGraph({
             role="menuitem"
             onClick={() => {
               onStashDrop?.(stashCtxMenu.index);
-              setStashCtxMenu(null);
+              closeStashCtxMenu();
             }}
           >
             Drop
@@ -554,7 +441,7 @@ export function CommitGraph({
             role="menuitem"
             onClick={() => {
               onCherryPick?.(commitCtxMenu.hash);
-              setCommitCtxMenu(null);
+              closeCommitCtxMenu();
             }}
           >
             Cherry pick commit
@@ -565,7 +452,7 @@ export function CommitGraph({
             role="menuitem"
             onClick={() => {
               onRevertCommit?.(commitCtxMenu.hash);
-              setCommitCtxMenu(null);
+              closeCommitCtxMenu();
             }}
           >
             Revert commit

@@ -80,7 +80,7 @@ function CommitItem({ entry, selected, onSelect }: CommitItemProps) {
 
 // ─── main component ───────────────────────────────────────────────────────────
 
-const PAGE_SIZE = 100;
+import { FILE_HISTORY_PAGE_SIZE as PAGE_SIZE } from "../constants/pagination";
 
 interface FileHistoryWorkspaceProps {
   repoPath: string;

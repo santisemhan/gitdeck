@@ -54,6 +54,8 @@
   --row-h-sm: 22px;
   --sidebar-w: 240px;
   --rpanel-w: 468px;
+  --sidebar-collapsed-w: 32px;
+  --rpanel-collapsed-w: 32px;
   --titlebar-h: 36px;
   --tabbar-h: 36px;
   --toolbar-h: 56px;

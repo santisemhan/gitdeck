@@ -1,10 +1,21 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import type { LocalBranch, RemoteBranch } from "../data/types";
+import { useContextMenu } from "../hooks/useContextMenu";
 import {
   IconArrowDown,
   IconArrowUp,
   IconBranch,
   IconCaretDown,
+  IconCaretLeft,
+  IconCaretRight,
   IconCheck,
   IconCloud,
   IconFolder,
@@ -20,6 +31,9 @@ interface BranchSidebarProps {
   onCreateBranchFrom?: (refName: string) => void;
   onDeleteBranch?: (refName: string) => void;
   onRequestRenameBranch?: (name: string) => void;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
+  onStartResize?: (event: ReactMouseEvent) => void;
 }
 
 type SectionKey = "LOCAL" | "REMOTE" | "WORKTREES" | "CLOUD PATCHES" | "PULL REQUESTS" | "ISSUES" | "TEAMS";
@@ -33,7 +47,24 @@ export function BranchSidebar({
   onCreateBranchFrom,
   onDeleteBranch,
   onRequestRenameBranch,
+  collapsed: panelCollapsed = false,
+  onToggleCollapsed,
+  onStartResize,
 }: BranchSidebarProps) {
+  if (panelCollapsed) {
+    return (
+      <aside className="panel-rail" aria-label="Branch sidebar collapsed">
+        <button
+          type="button"
+          title="Expand branch sidebar"
+          aria-label="Expand branch sidebar"
+          onClick={onToggleCollapsed}
+        >
+          <IconCaretRight size={14} />
+        </button>
+      </aside>
+    );
+  }
   const [collapsed, setCollapsed] = useState<Record<SectionKey, boolean>>({
     LOCAL: false,
     REMOTE: false,
@@ -46,27 +77,15 @@ export function BranchSidebar({
   const [folderCollapsed, setFolderCollapsed] = useState<Record<string, boolean>>({});
   const [filter, setFilter] = useState("");
   const filterInputRef = useRef<HTMLInputElement | null>(null);
-  const [branchCtxMenu, setBranchCtxMenu] = useState<{
+  type BranchCtxMenuState = {
     x: number;
     y: number;
     refName: string;
     isCurrent: boolean;
     isRemote: boolean;
-  } | null>(null);
-
-  useEffect(() => {
-    if (!branchCtxMenu) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      setBranchCtxMenu(null);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [branchCtxMenu]);
+  };
+  const { menu: branchCtxMenu, open: openBranchCtxMenu, close: closeBranchCtxMenu } =
+    useContextMenu<BranchCtxMenuState>();
 
   const isMac = useMemo(() => navigator.platform.toUpperCase().includes("MAC"), []);
 
@@ -165,7 +184,7 @@ export function BranchSidebar({
         onContextMenu={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          setBranchCtxMenu({
+          openBranchCtxMenu({
             x: event.clientX,
             y: event.clientY,
             refName: b.name,
@@ -199,13 +218,26 @@ export function BranchSidebar({
 
   return (
     <aside className="sidebar">
-      <div className="filter sidebar-filter-top">
-        <input
-          ref={filterInputRef}
-          placeholder={isMac ? "Filter (⌘ + ⌥ + F)" : "Filter (Ctrl + Alt + F)"}
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
+      <div className="sidebar-top-bar">
+        <div className="filter sidebar-filter-top">
+          <input
+            ref={filterInputRef}
+            placeholder={isMac ? "Filter (⌘ + ⌥ + F)" : "Filter (Ctrl + Alt + F)"}
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+        </div>
+        {onToggleCollapsed && (
+          <button
+            type="button"
+            className="panel-collapse-btn"
+            title="Collapse branch sidebar"
+            aria-label="Collapse branch sidebar"
+            onClick={onToggleCollapsed}
+          >
+            <IconCaretLeft size={14} />
+          </button>
+        )}
       </div>
 
       <div className={"scroll" + (bothOpen ? " split-open" : "")}>
@@ -277,7 +309,7 @@ export function BranchSidebar({
                               onContextMenu={(event) => {
                                 event.preventDefault();
                                 event.stopPropagation();
-                                setBranchCtxMenu({
+                                openBranchCtxMenu({
                                   x: event.clientX,
                                   y: event.clientY,
                                   refName: c.name,
@@ -302,7 +334,7 @@ export function BranchSidebar({
                       onContextMenu={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        setBranchCtxMenu({
+                        openBranchCtxMenu({
                           x: event.clientX,
                           y: event.clientY,
                           refName: b.name,
@@ -335,7 +367,7 @@ export function BranchSidebar({
             role="menuitem"
             onClick={() => {
               onCreateBranchFrom?.(branchCtxMenu.refName);
-              setBranchCtxMenu(null);
+              closeBranchCtxMenu();
             }}
           >
             New branch from here
@@ -348,7 +380,7 @@ export function BranchSidebar({
                 role="menuitem"
                 onClick={() => {
                   onRequestRenameBranch?.(branchCtxMenu.refName);
-                  setBranchCtxMenu(null);
+                  closeBranchCtxMenu();
                 }}
               >
                 Rename
@@ -361,7 +393,7 @@ export function BranchSidebar({
                 title={branchCtxMenu.isCurrent ? "Cannot delete the current branch" : undefined}
                 onClick={() => {
                   onDeleteBranch?.(branchCtxMenu.refName);
-                  setBranchCtxMenu(null);
+                  closeBranchCtxMenu();
                 }}
               >
                 Delete branch
@@ -369,6 +401,15 @@ export function BranchSidebar({
             </>
           )}
         </div>
+      )}
+      {onStartResize && (
+        <div
+          className="panel-resize-handle panel-resize-handle-right"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize branch sidebar"
+          onMouseDown={onStartResize}
+        />
       )}
     </aside>
   );
