@@ -1,3 +1,6 @@
+// Intentionally narrower than the shared `GitFileKind` (which also includes "copied" |
+// "untracked" | "conflicted"). The renderer's ChangedFile UI only handles these four
+// states; widening would require new icons and status pills.
 export type FileStatus = "added" | "modified" | "deleted" | "renamed";
 
 export interface ChangedFile {

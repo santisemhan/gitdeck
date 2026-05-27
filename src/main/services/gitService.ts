@@ -241,8 +241,26 @@ export class GitService {
     return ok(result);
   }
 
-  async getHistory(repoPath: string): Promise<ReturnType<typeof parseHistory>> {
-    const result = await runGit(repoPath, ["log", "--date=iso-strict", "--decorate=full", `--format=${historyFormat}`, "-n", "200", "--branches", "--remotes", "--tags", "HEAD"]);
+  async getHistory(
+    repoPath: string,
+    opts?: { limit?: number; skip?: number }
+  ): Promise<ReturnType<typeof parseHistory>> {
+    const limit = opts?.limit ?? 200;
+    const skip = opts?.skip ?? 0;
+    const result = await runGit(repoPath, [
+      "log",
+      "--date=iso-strict",
+      "--decorate=full",
+      `--format=${historyFormat}`,
+      "-n",
+      String(limit),
+      "--skip",
+      String(skip),
+      "--branches",
+      "--remotes",
+      "--tags",
+      "HEAD",
+    ]);
     if (result.code !== 0) throw new Error(result.stderr || "Unable to get history");
     return parseHistory(result.stdout);
   }

@@ -50,6 +50,16 @@
   width: 100%;
   min-width: fit-content;
 }
+
+.graph-sentinel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  font-size: 12px;
+  color: var(--text-3);
+  font-style: italic;
+}
 .graph-list .commit-row {
   display: contents;
 }

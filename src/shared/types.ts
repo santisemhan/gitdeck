@@ -144,10 +144,6 @@ export interface FileHistoryEntry {
 }
 
 export type FileStatus = GitFileKind;
-export type DiffMode = "split" | "inline";
-export type MainView = "graph" | "filePreview";
-export type RightPanelMode = "localChanges" | "commitDetails";
-export type SelectedFileSource = "commit" | "unstaged" | "staged";
 
 export interface DiffLine {
   type: "header" | "hunk" | "add" | "del" | "context";
