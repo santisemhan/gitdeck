@@ -111,6 +111,10 @@ export function parseStatusPorcelainV2(repoPath: string, input: string, opState:
     upstream,
     ahead,
     behind,
+    // Populated by the caller (gitService.getStatus runs a separate
+    // `git rev-list --count HEAD --not --remotes`). Default to 0 here so the
+    // parser stays pure and standalone-testable.
+    unpushed: 0,
     clean: changes.length === 0,
     state: opState,
     conflicts: {

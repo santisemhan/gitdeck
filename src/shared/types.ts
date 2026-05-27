@@ -44,6 +44,13 @@ export interface GitStatus {
   upstream?: string;
   ahead: number;
   behind: number;
+  /**
+   * Number of commits in HEAD that are not present on any remote tracking
+   * branch. Equivalent to `ahead` when an upstream is configured, but also
+   * surfaces unpushed commits on branches without an upstream (e.g. brand-new
+   * branches that need a `git push -u`).
+   */
+  unpushed: number;
   clean: boolean;
   state: RepositoryState;
   conflicts: GitConflictState;
