@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { LocalBranch, RemoteBranch } from "../data/types";
 import {
   IconArrowDown,
@@ -45,6 +45,7 @@ export function BranchSidebar({
   });
   const [folderCollapsed, setFolderCollapsed] = useState<Record<string, boolean>>({});
   const [filter, setFilter] = useState("");
+  const filterInputRef = useRef<HTMLInputElement | null>(null);
   const [branchCtxMenu, setBranchCtxMenu] = useState<{
     x: number;
     y: number;
@@ -66,6 +67,26 @@ export function BranchSidebar({
       document.removeEventListener("keydown", close);
     };
   }, [branchCtxMenu]);
+
+  const isMac = useMemo(() => navigator.platform.toUpperCase().includes("MAC"), []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "f" || event.shiftKey) return;
+
+      const isMacShortcut = isMac && event.metaKey && event.altKey && !event.ctrlKey;
+      const isWindowsShortcut = !isMac && event.ctrlKey && event.altKey && !event.metaKey;
+
+      if (!isMacShortcut && !isWindowsShortcut) return;
+
+      event.preventDefault();
+      filterInputRef.current?.focus();
+      filterInputRef.current?.select();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isMac]);
 
   const toggleSection = (k: SectionKey) =>
     setCollapsed((s) => ({ ...s, [k]: !s[k] }));
@@ -180,7 +201,8 @@ export function BranchSidebar({
     <aside className="sidebar">
       <div className="filter sidebar-filter-top">
         <input
-          placeholder="Filter (Ctrl + Alt + f)"
+          ref={filterInputRef}
+          placeholder={isMac ? "Filter (⌘ + ⌥ + F)" : "Filter (Ctrl + Alt + F)"}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
