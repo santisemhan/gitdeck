@@ -35,6 +35,50 @@ describe("GitService integration", () => {
     expect(commit.ok).toBe(true);
   });
 
+  it("reports ahead and unpushed > 0 after a local commit on a branch with upstream", async () => {
+    // Create a bare remote, set it up, then make a local commit that's ahead of remote.
+    const remote = fs.mkdtempSync(path.join(os.tmpdir(), "gitdeck-remote-"));
+    await runCommand("git", ["init", "--bare"], remote);
+    await runCommand("git", ["remote", "add", "origin", remote], repo);
+    await runCommand("git", ["push", "-u", "origin", "HEAD"], repo);
+
+    // Sanity: right after push, nothing ahead.
+    let status = await service.getStatus(repo);
+    expect(status.ahead).toBe(0);
+    expect(status.behind).toBe(0);
+    expect(status.unpushed).toBe(0);
+
+    // Now make a local commit. ahead AND unpushed should both become 1.
+    fs.writeFileSync(path.join(repo, "c.txt"), "c\n", "utf8");
+    await runCommand("git", ["add", "c.txt"], repo);
+    await runCommand("git", ["commit", "-m", "add c"], repo);
+
+    status = await service.getStatus(repo);
+    expect(status.ahead).toBe(1);
+    expect(status.behind).toBe(0);
+    expect(status.unpushed).toBe(1);
+  });
+
+  it("reports unpushed > 0 on a branch without upstream", async () => {
+    // Add a remote and push main so origin/main exists, then switch to a brand-new
+    // branch that has NO upstream configured.
+    const remote = fs.mkdtempSync(path.join(os.tmpdir(), "gitdeck-remote-"));
+    await runCommand("git", ["init", "--bare"], remote);
+    await runCommand("git", ["remote", "add", "origin", remote], repo);
+    await runCommand("git", ["push", "-u", "origin", "HEAD"], repo);
+
+    await runCommand("git", ["checkout", "-b", "feature-x"], repo);
+    fs.writeFileSync(path.join(repo, "f.txt"), "f\n", "utf8");
+    await runCommand("git", ["add", "f.txt"], repo);
+    await runCommand("git", ["commit", "-m", "feature commit"], repo);
+
+    const status = await service.getStatus(repo);
+    // No upstream → ahead stays at 0 (porcelain doesn't emit branch.ab).
+    expect(status.ahead).toBe(0);
+    // But unpushed should be 1, so the badge will still show.
+    expect(status.unpushed).toBe(1);
+  });
+
   it("paginates history via limit and skip", async () => {
     // Create 4 extra commits on top of the initial one, for a total of 5.
     for (let i = 0; i < 4; i++) {

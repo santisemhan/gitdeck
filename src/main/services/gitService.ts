@@ -167,11 +167,23 @@ export class GitService {
     if (result.code !== 0) throw new Error(result.stderr || "Unable to get status");
     const status = parseStatusPorcelainV2(repoPath, result.stdout, state);
     const changes = this.normalizeUntrackedChanges(repoPath, status.changes);
+    const unpushed = await this.countUnpushedCommits(repoPath);
     return {
       ...status,
+      unpushed,
       clean: changes.length === 0,
       changes
     };
+  }
+
+  private async countUnpushedCommits(repoPath: string): Promise<number> {
+    // Commits reachable from HEAD that are NOT reachable from any remote
+    // tracking branch. Works whether the current branch has an upstream
+    // configured or not, and stays at 0 once everything is pushed.
+    const result = await runGit(repoPath, ["rev-list", "--count", "HEAD", "--not", "--remotes"]);
+    if (result.code !== 0) return 0;
+    const n = parseInt(result.stdout.trim(), 10);
+    return Number.isFinite(n) ? n : 0;
   }
 
   async getDiff(repoPath: string, filePath: string, staged: boolean): Promise<GitDiff> {

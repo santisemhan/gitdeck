@@ -756,7 +756,7 @@ function RepoView({
         <RepoToolbar
           repoName={repoName}
           currentBranch={currentBranch}
-          statusAhead={status?.ahead || 0}
+          statusAhead={status?.unpushed ?? status?.ahead ?? 0}
           statusBehind={status?.behind || 0}
           stashCount={stashes.length}
           localBranches={localBranches}
