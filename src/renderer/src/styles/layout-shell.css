@@ -456,6 +456,78 @@
   min-height: 0;
   overflow: hidden;
 }
+.workarea.left-collapsed {
+  grid-template-columns: var(--sidebar-collapsed-w) 1fr var(--rpanel-w);
+}
+.workarea.right-collapsed {
+  grid-template-columns: var(--sidebar-w) 1fr var(--rpanel-collapsed-w);
+}
+.workarea.left-collapsed.right-collapsed {
+  grid-template-columns: var(--sidebar-collapsed-w) 1fr var(--rpanel-collapsed-w);
+}
+
+/* Collapsed-rail shared styling (left rail + right rail) */
+.panel-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 8px;
+  background: var(--bg-1);
+  border-right: 1px solid var(--border-1);
+}
+.panel-rail.right {
+  border-right: none;
+  border-left: 1px solid var(--border-1);
+}
+.panel-rail button {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  color: var(--text-3);
+}
+.panel-rail button:hover {
+  background: var(--bg-2);
+  color: var(--text-1);
+}
+
+/* Drag handle for resizing the left/right panels */
+.panel-resize-handle {
+  position: absolute;
+  top: 0;
+  width: 5px;
+  height: 100%;
+  cursor: ew-resize;
+  z-index: 6;
+  background: transparent;
+  transition: background 80ms ease-in-out;
+}
+.panel-resize-handle:hover,
+.panel-resize-handle:active {
+  background: rgba(110, 162, 255, 0.35);
+}
+.panel-resize-handle-right {
+  right: 0;
+}
+.panel-resize-handle-left {
+  left: 0;
+}
+
+/* Collapse / expand chevron buttons inside panels */
+.panel-collapse-btn {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.panel-collapse-btn:hover {
+  background: var(--bg-2);
+  color: var(--text-1);
+}
 
 .terminal-panel {
   position: relative;

@@ -7,18 +7,22 @@ import type {
   GitStatus
 } from "../../../shared/types";
 import { describeError, gitClient } from "../services/gitClient";
+import { HISTORY_PAGE_SIZE } from "../constants/pagination";
 
 export interface RepoSnapshot {
   status: GitStatus | null;
   history: GitCommit[];
   branches: GitBranch[];
   stashes: GitStashEntry[];
+  historyDone: boolean;
 }
 
 export interface UseRepoData {
   data: RepoSnapshot;
   loading: boolean;
+  loadingMoreHistory: boolean;
   refresh: () => Promise<void>;
+  loadMoreHistory: () => Promise<void>;
   stageFile: (path: string) => Promise<void>;
   unstageFile: (path: string) => Promise<void>;
   stageAll: () => Promise<void>;
@@ -40,11 +44,23 @@ export interface UseRepoData {
   revertCommit: (hash: string) => Promise<void>;
 }
 
+const EMPTY_SNAPSHOT: RepoSnapshot = {
+  status: null,
+  history: [],
+  branches: [],
+  stashes: [],
+  historyDone: false,
+};
+
 export function useRepoData(repoPath: string | null): UseRepoData {
-  const [data, setData] = useState<RepoSnapshot>({ status: null, history: [], branches: [], stashes: [] });
+  const [data, setData] = useState<RepoSnapshot>(EMPTY_SNAPSHOT);
   const [loading, setLoading] = useState(false);
+  const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
   const inflight = useRef(0);
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const historyRef = useRef<GitCommit[]>([]);
+  const historyDoneRef = useRef(false);
+  const loadMoreInflightRef = useRef(false);
 
   const load = useCallback(async () => {
     if (!repoPath) return;
@@ -53,12 +69,15 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     try {
       const [status, history, branches, stashes] = await Promise.all([
         gitClient.status(repoPath),
-        gitClient.history(repoPath),
+        gitClient.history(repoPath, { limit: HISTORY_PAGE_SIZE, skip: 0 }),
         gitClient.branches(repoPath),
         gitClient.stashList(repoPath)
       ]);
       if (token === inflight.current) {
-        setData({ status, history, branches, stashes });
+        const done = history.length < HISTORY_PAGE_SIZE;
+        historyRef.current = history;
+        historyDoneRef.current = done;
+        setData({ status, history, branches, stashes, historyDone: done });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load repository";
@@ -68,8 +87,35 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     }
   }, [repoPath]);
 
+  const loadMoreHistory = useCallback(async () => {
+    if (!repoPath) return;
+    if (loadMoreInflightRef.current || historyDoneRef.current) return;
+    loadMoreInflightRef.current = true;
+    setLoadingMoreHistory(true);
+    const requestToken = inflight.current;
+    try {
+      const skip = historyRef.current.length;
+      const page = await gitClient.history(repoPath, { limit: HISTORY_PAGE_SIZE, skip });
+      // If a full refresh ran while we were fetching, drop this page.
+      if (requestToken !== inflight.current) return;
+      const done = page.length < HISTORY_PAGE_SIZE;
+      const merged = [...historyRef.current, ...page];
+      historyRef.current = merged;
+      historyDoneRef.current = done;
+      setData((prev) => ({ ...prev, history: merged, historyDone: done }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load more history";
+      toast.error(message);
+    } finally {
+      loadMoreInflightRef.current = false;
+      setLoadingMoreHistory(false);
+    }
+  }, [repoPath]);
+
   useEffect(() => {
-    setData({ status: null, history: [], branches: [], stashes: [] });
+    historyRef.current = [];
+    historyDoneRef.current = false;
+    setData(EMPTY_SNAPSHOT);
     void load();
   }, [load]);
 
@@ -280,7 +326,9 @@ export function useRepoData(repoPath: string | null): UseRepoData {
   return {
     data,
     loading,
+    loadingMoreHistory,
     refresh: load,
+    loadMoreHistory,
     stageFile,
     unstageFile,
     stageAll,

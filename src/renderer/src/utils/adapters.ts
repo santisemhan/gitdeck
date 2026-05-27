@@ -150,6 +150,9 @@ interface StashSynthetic {
   hash: string;
 }
 
+// Invariant for lazy-load callers: always pass the FULL accumulated history,
+// not just the latest page. WIP synthesis at the top and stash injection rely
+// on seeing every loaded commit so they happen exactly once.
 export function toCommits(
   history: GitCommit[],
   options: {

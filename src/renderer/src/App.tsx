@@ -12,7 +12,17 @@ import { RightPanel } from "./components/RightPanel";
 import { TerminalPanel } from "./components/TerminalPanel";
 import { useActiveRepo } from "./hooks/useActiveRepo";
 import { useRepoData } from "./hooks/useRepoData";
+import { usePanelWidth } from "./hooks/usePanelWidth";
 import { gitClient } from "./services/gitClient";
+import { STORAGE_KEYS } from "./constants/storageKeys";
+import { readStoredBoolean, writeStoredBoolean } from "./utils/storage";
+import type { CSSProperties } from "react";
+
+const LEFT_PANEL_MIN_WIDTH = 180;
+const RIGHT_PANEL_MIN_WIDTH = 300;
+const LEFT_PANEL_MAX_FRACTION = 0.7;
+const RIGHT_PANEL_MAX_FRACTION = 0.35;
+const CENTER_MIN_WIDTH = 200;
 import {
   commitFileToChangedFile,
   toBranches,
@@ -94,6 +104,76 @@ function RepoView({
 
   const [mainView, setMainView] = useState<MainView>("graph");
   const [rightPanelMode, setRightPanelMode] = useState<RightPanelMode>("localChanges");
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(() =>
+    readStoredBoolean(STORAGE_KEYS.leftPanelCollapsed, false),
+  );
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(() =>
+    readStoredBoolean(STORAGE_KEYS.rightPanelCollapsed, false),
+  );
+  useEffect(() => {
+    writeStoredBoolean(STORAGE_KEYS.leftPanelCollapsed, leftPanelCollapsed);
+  }, [leftPanelCollapsed]);
+  useEffect(() => {
+    writeStoredBoolean(STORAGE_KEYS.rightPanelCollapsed, rightPanelCollapsed);
+  }, [rightPanelCollapsed]);
+  const toggleRightPanel = useCallback(() => setRightPanelCollapsed((v) => !v), []);
+
+  // Auto-collapse the left panel when entering file preview, auto-expand when leaving.
+  // Skip the initial render so we don't clobber the user's persisted preference on app start.
+  const prevMainViewRef = useRef(mainView);
+  useEffect(() => {
+    if (prevMainViewRef.current === mainView) return;
+    prevMainViewRef.current = mainView;
+    setLeftPanelCollapsed(mainView === "filePreview");
+  }, [mainView]);
+
+  // Track the other panel's width via refs so the max-width callbacks read fresh values.
+  const leftWidthRef = useRef(240);
+  const rightWidthRef = useRef(468);
+
+  const leftPanel = usePanelWidth({
+    initial: 240,
+    min: LEFT_PANEL_MIN_WIDTH,
+    max: () => {
+      const vw = typeof window === "undefined" ? Number.MAX_SAFE_INTEGER : window.innerWidth;
+      const capByViewport = Math.round(vw * LEFT_PANEL_MAX_FRACTION);
+      const otherWidth = rightPanelCollapsed ? 32 : rightWidthRef.current;
+      const capByCenter = vw - otherWidth - CENTER_MIN_WIDTH;
+      return Math.max(LEFT_PANEL_MIN_WIDTH, Math.min(capByViewport, capByCenter));
+    },
+    storageKey: STORAGE_KEYS.leftPanelWidth,
+    grow: "right",
+  });
+  const rightPanel = usePanelWidth({
+    initial: 468,
+    min: RIGHT_PANEL_MIN_WIDTH,
+    max: () => {
+      const vw = typeof window === "undefined" ? Number.MAX_SAFE_INTEGER : window.innerWidth;
+      const capByViewport = Math.round(vw * RIGHT_PANEL_MAX_FRACTION);
+      const otherWidth = leftPanelCollapsed ? 32 : leftWidthRef.current;
+      const capByCenter = vw - otherWidth - CENTER_MIN_WIDTH;
+      return Math.max(RIGHT_PANEL_MIN_WIDTH, Math.min(capByViewport, capByCenter));
+    },
+    storageKey: STORAGE_KEYS.rightPanelWidth,
+    grow: "left",
+  });
+  leftWidthRef.current = leftPanel.width;
+  rightWidthRef.current = rightPanel.width;
+
+  // Re-clamp on viewport resize so panels never push the center below CENTER_MIN_WIDTH.
+  useEffect(() => {
+    const onResize = () => {
+      leftPanel.setWidth(leftPanel.width);
+      rightPanel.setWidth(rightPanel.width);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [leftPanel, rightPanel]);
+
+  const workareaStyle: CSSProperties = {
+    ["--sidebar-w" as string]: `${leftPanel.width}px`,
+    ["--rpanel-w" as string]: `${rightPanel.width}px`,
+  };
   const [selectedCommit, setSelectedCommit] = useState<Commit | null>(null);
   const [selectedFile, setSelectedFile] = useState<ChangedFile | null>(null);
   const [selectedFileSource, setSelectedFileSource] = useState<SelectedFileSource | null>(null);
@@ -251,6 +331,16 @@ function RepoView({
     setSelectedFileSource(null);
     setMainView("graph");
   }, []);
+
+  // Expanding the left rail while viewing a file also closes the file view (returns to graph).
+  // The auto-expand effect tied to mainView will then open the panel.
+  const toggleLeftPanel = useCallback(() => {
+    if (leftPanelCollapsed && mainView === "filePreview") {
+      handleCloseDiff();
+      return;
+    }
+    setLeftPanelCollapsed((v) => !v);
+  }, [leftPanelCollapsed, mainView, handleCloseDiff]);
 
   const handleOpenFileHistory = useCallback((file: ChangedFile) => {
     setFileHistoryPath(file.path);
@@ -689,7 +779,14 @@ function RepoView({
         />
       </div>
 
-      <div className="workarea">
+      <div
+        className={
+          "workarea" +
+          (leftPanelCollapsed ? " left-collapsed" : "") +
+          (rightPanelCollapsed ? " right-collapsed" : "")
+        }
+        style={workareaStyle}
+      >
         {fileHistoryPath ? (
           <FileHistoryWorkspace
             repoPath={repoPath}
@@ -709,6 +806,9 @@ function RepoView({
               onCreateBranchFrom={(refName) => void handleCreateBranchFrom(refName)}
               onDeleteBranch={(refName) => void handleDeleteBranch(refName)}
               onRequestRenameBranch={handleRequestRenameBranch}
+              collapsed={leftPanelCollapsed}
+              onToggleCollapsed={toggleLeftPanel}
+              onStartResize={leftPanel.startResize}
             />
 
             <div className="center">
@@ -726,6 +826,9 @@ function RepoView({
                 onStashDrop={(index) => void handleStashDrop(index)}
                 onCherryPick={(hash) => void data.cherryPick(hash)}
                 onRevertCommit={(hash) => void data.revertCommit(hash)}
+                onLoadMore={() => void data.loadMoreHistory()}
+                loadingMore={data.loadingMoreHistory}
+                historyDone={data.data.historyDone}
               />
               {mainView === "filePreview" && selectedFile && (
                 <DiffPreviewWorkspace
@@ -771,6 +874,9 @@ function RepoView({
               onRequestDiscardAll={() => setShowDiscardAllBanner(true)}
               onCommit={handleCommit}
               onViewLocalChanges={handleViewLocalChanges}
+              collapsed={rightPanelCollapsed}
+              onToggleCollapsed={toggleRightPanel}
+              onStartResize={rightPanel.startResize}
             />
           </>
         )}

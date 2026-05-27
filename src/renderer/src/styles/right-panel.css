@@ -7,6 +7,14 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  position: relative;
+}
+.rpanel-collapse-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  background: var(--bg-1);
 }
 
 .rpanel-head {

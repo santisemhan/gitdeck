@@ -35,8 +35,8 @@ export const gitClient = {
   status(repoPath: string): Promise<GitStatus> {
     return api().getStatus(repoPath);
   },
-  history(repoPath: string): Promise<GitCommit[]> {
-    return api().getHistory(repoPath);
+  history(repoPath: string, opts?: { limit?: number; skip?: number }): Promise<GitCommit[]> {
+    return api().getHistory(repoPath, opts);
   },
   fileHistory(repoPath: string, filePath: string, opts?: { limit?: number; skip?: number }): Promise<FileHistoryEntry[]> {
     return api().getFileHistory(repoPath, filePath, opts);
