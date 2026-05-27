@@ -39,6 +39,7 @@ import {
   Sparkle,
   SquareSplitHorizontal,
   Terminal,
+  Tag,
   TextAUnderline,
   Trash,
   Tree,
@@ -63,6 +64,7 @@ export const IconArchiveUp = make(ArrowLineUp);
 export const IconArchive = make(Archive);
 export const IconBranch = make(GitBranch);
 export const IconTerminal = make(Terminal);
+export const IconTag = make(Tag);
 export const IconSearch = make(MagnifyingGlass);
 export const IconBell = make(Bell);
 export const IconGear = make(Gear);

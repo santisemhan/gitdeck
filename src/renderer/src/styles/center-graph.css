@@ -53,6 +53,7 @@
 .graph-list .commit-row {
   display: contents;
 }
+
 .commit-row-cell {
   display: flex;
   align-items: center;
@@ -88,7 +89,28 @@
   gap: 8px;
   padding-right: 14px;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
+  z-index: 2;
+}
+
+.commit-row.with-date-divider .commit-row-cell {
+  border-top: 1px solid var(--border-1);
+}
+
+.commit-date-chip {
+  position: absolute;
+  right: 10px;
+  top: -9px;
+  z-index: 5;
+  font-size: 11px;
+  color: var(--text-3);
+  background: var(--bg-3);
+  border: 1px solid var(--border-2);
+  padding: 0 6px;
+  line-height: 14px;
+  border-radius: 3px;
+  font-style: normal;
 }
 
 .graph-shell {
