@@ -10,6 +10,7 @@ import {
 import type { LocalBranch, RemoteBranch } from "../data/types";
 import type { WorktreeInfo } from "../../../shared/types";
 import { useContextMenu } from "../hooks/useContextMenu";
+import { useCreateWorktree } from "../hooks/useCreateWorktree";
 import {
   IconArrowDown,
   IconArrowUp,
@@ -23,17 +24,20 @@ import {
   IconMonitor,
 } from "./icons";
 import { WorktreeSection } from "./WorktreeSection";
+import { CreateWorktreeDialog } from "./CreateWorktreeDialog";
 
 interface BranchSidebarProps {
   localBranches: LocalBranch[];
   remoteBranches: RemoteBranch[];
   worktrees: WorktreeInfo[];
+  repoPath: string;
   currentBranchId: string;
   onSelectBranch: (branch: LocalBranch | RemoteBranch) => void;
   onCheckoutBranch: (branch: LocalBranch | RemoteBranch) => void;
   onCreateBranchFrom?: (refName: string) => void;
   onDeleteBranch?: (refName: string) => void;
   onRequestRenameBranch?: (name: string) => void;
+  onWorktreeCreated?: () => void;
   onSelectWorktree?: (worktree: WorktreeInfo) => void;
   onSwitchWorktree?: (worktree: WorktreeInfo) => void;
   onDeleteWorktree?: (worktree: WorktreeInfo) => void;
@@ -51,12 +55,14 @@ export function BranchSidebar({
   localBranches,
   remoteBranches,
   worktrees,
+  repoPath,
   currentBranchId,
   onSelectBranch,
   onCheckoutBranch,
   onCreateBranchFrom,
   onDeleteBranch,
   onRequestRenameBranch,
+  onWorktreeCreated,
   onSelectWorktree,
   onSwitchWorktree,
   onDeleteWorktree,
@@ -102,6 +108,12 @@ export function BranchSidebar({
   };
   const { menu: branchCtxMenu, open: openBranchCtxMenu, close: closeBranchCtxMenu } =
     useContextMenu<BranchCtxMenuState>();
+
+  const { isOpen: isCreateDialogOpen, branchName: createBranchName, isRemote: createIsRemote, open: openCreateDialog, close: closeCreateDialog } = useCreateWorktree();
+
+  const hasLocalTrackingBranch = (remoteBranchName: string): boolean => {
+    return localBranches.some((b) => b.name === remoteBranchName);
+  };
 
   const isMac = useMemo(() => navigator.platform.toUpperCase().includes("MAC"), []);
 
@@ -430,8 +442,42 @@ export function BranchSidebar({
               </button>
             </>
           )}
+          {!branchCtxMenu.isRemote && (
+            <button
+              type="button"
+              className="ctx-menu-item"
+              role="menuitem"
+              onClick={() => {
+                openCreateDialog(branchCtxMenu.refName, false);
+                closeBranchCtxMenu();
+              }}
+            >
+              Create Worktree
+            </button>
+          )}
+          {branchCtxMenu.isRemote && hasLocalTrackingBranch(branchCtxMenu.refName) && (
+            <button
+              type="button"
+              className="ctx-menu-item"
+              role="menuitem"
+              onClick={() => {
+                openCreateDialog(branchCtxMenu.refName, true);
+                closeBranchCtxMenu();
+              }}
+            >
+              Create Worktree
+            </button>
+          )}
         </div>
       )}
+      <CreateWorktreeDialog
+        isOpen={isCreateDialogOpen}
+        branchName={createBranchName}
+        isRemote={createIsRemote}
+        repoPath={repoPath}
+        onClose={closeCreateDialog}
+        onCreated={() => onWorktreeCreated?.()}
+      />
       {onStartResize && (
         <div
           className="panel-resize-handle panel-resize-handle-right"
