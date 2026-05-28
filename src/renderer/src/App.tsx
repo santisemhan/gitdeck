@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toaster, toast } from "sonner";
 import { BranchSidebar } from "./components/BranchSidebar";
 import { CommitGraph } from "./components/CommitGraph";
+import { DeleteWorktreeDialog } from "./components/DeleteWorktreeDialog";
 import { DiffPreviewWorkspace } from "./components/DiffPreviewWorkspace";
 import { FileHistoryWorkspace } from "./components/FileHistoryWorkspace";
 import { RepoStatusBar } from "./components/RepoStatusBar";
@@ -13,6 +14,8 @@ import { TerminalPanel } from "./components/TerminalPanel";
 import { useActiveRepo } from "./hooks/useActiveRepo";
 import { useRepoData } from "./hooks/useRepoData";
 import { usePanelWidth } from "./hooks/usePanelWidth";
+import { useWorktrees } from "./hooks/useWorktrees";
+import { useDeleteWorktree } from "./hooks/useDeleteWorktree";
 import { gitClient } from "./services/gitClient";
 import { STORAGE_KEYS } from "./constants/storageKeys";
 import { readStoredBoolean, writeStoredBoolean } from "./utils/storage";
@@ -39,6 +42,7 @@ import type {
   RightPanelMode,
   SelectedFileSource,
 } from "./data/types";
+import type { WorktreeInfo } from "../../shared/types";
 
 interface BranchMenuItem {
   branch: LocalBranch | RemoteBranch;
@@ -101,6 +105,8 @@ function RepoView({
 }: RepoViewProps) {
   const data = useRepoData(repoPath);
   const { status, history, branches, stashes } = data.data;
+  const { worktrees, refresh: refreshWorktrees } = useWorktrees(repoPath);
+  const deleteWorktree = useDeleteWorktree(repoPath, refreshWorktrees);
 
   const [mainView, setMainView] = useState<MainView>("graph");
   const [rightPanelMode, setRightPanelMode] = useState<RightPanelMode>("localChanges");
@@ -650,6 +656,24 @@ function RepoView({
     setSelectedFileSource(null);
   }, []);
 
+  const handleSelectWorktree = useCallback((_worktree: WorktreeInfo) => {
+    // TODO: Implement worktree selection
+  }, []);
+
+  const handleSwitchWorktree = useCallback(async (worktree: WorktreeInfo) => {
+    try {
+      const result = await gitClient.switchToWorktree(worktree.path);
+      if (result.ok) {
+        toast.success(`Switched to worktree: ${worktree.path}`);
+        await data.refresh();
+      } else {
+        toast.error(result.message || "Failed to switch worktree");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to switch worktree");
+    }
+  }, [data]);
+
   return (
     <div className={"app" + (showDiscardAllBanner ? " discard-lock" : "")}>
       {showDiscardAllBanner && <div className="discard-ui-lock" aria-hidden="true" />}
@@ -800,15 +824,29 @@ function RepoView({
             <BranchSidebar
               localBranches={localBranches}
               remoteBranches={remoteBranches}
+              worktrees={worktrees}
+              repoPath={repoPath}
               currentBranchId={currentBranchId}
               onSelectBranch={handleSelectBranch}
               onCheckoutBranch={handleCheckoutBranch}
               onCreateBranchFrom={(refName) => void handleCreateBranchFrom(refName)}
               onDeleteBranch={(refName) => void handleDeleteBranch(refName)}
               onRequestRenameBranch={handleRequestRenameBranch}
+              onWorktreeCreated={refreshWorktrees}
+              onSelectWorktree={(wt) => void handleSelectWorktree(wt)}
+              onSwitchWorktree={(wt) => void handleSwitchWorktree(wt)}
+              onDeleteWorktree={deleteWorktree.open}
               collapsed={leftPanelCollapsed}
               onToggleCollapsed={toggleLeftPanel}
               onStartResize={leftPanel.startResize}
+            />
+            <DeleteWorktreeDialog
+              isOpen={deleteWorktree.isOpen}
+              worktree={deleteWorktree.worktree}
+              loading={deleteWorktree.loading}
+              error={deleteWorktree.error}
+              onClose={deleteWorktree.close}
+              onConfirm={() => void deleteWorktree.delete()}
             />
 
             <div className="center">
