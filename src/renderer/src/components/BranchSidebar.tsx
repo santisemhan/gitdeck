@@ -8,6 +8,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import type { LocalBranch, RemoteBranch } from "../data/types";
+import type { WorktreeInfo } from "../../../shared/types";
 import { useContextMenu } from "../hooks/useContextMenu";
 import {
   IconArrowDown,
@@ -21,16 +22,24 @@ import {
   IconFolder,
   IconMonitor,
 } from "./icons";
+import { WorktreeSection } from "./WorktreeSection";
 
 interface BranchSidebarProps {
   localBranches: LocalBranch[];
   remoteBranches: RemoteBranch[];
+  worktrees: WorktreeInfo[];
   currentBranchId: string;
   onSelectBranch: (branch: LocalBranch | RemoteBranch) => void;
   onCheckoutBranch: (branch: LocalBranch | RemoteBranch) => void;
   onCreateBranchFrom?: (refName: string) => void;
   onDeleteBranch?: (refName: string) => void;
   onRequestRenameBranch?: (name: string) => void;
+  onSelectWorktree?: (worktree: WorktreeInfo) => void;
+  onSwitchWorktree?: (worktree: WorktreeInfo) => void;
+  onDeleteWorktree?: (worktree: WorktreeInfo) => void;
+  onRenameWorktree?: (worktree: WorktreeInfo) => void;
+  onOpenInFinder?: (worktree: WorktreeInfo) => void;
+  onPruneWorktree?: (worktree: WorktreeInfo) => void;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
   onStartResize?: (event: ReactMouseEvent) => void;
@@ -41,12 +50,19 @@ type SectionKey = "LOCAL" | "REMOTE" | "WORKTREES" | "CLOUD PATCHES" | "PULL REQ
 export function BranchSidebar({
   localBranches,
   remoteBranches,
+  worktrees,
   currentBranchId,
   onSelectBranch,
   onCheckoutBranch,
   onCreateBranchFrom,
   onDeleteBranch,
   onRequestRenameBranch,
+  onSelectWorktree,
+  onSwitchWorktree,
+  onDeleteWorktree,
+  onRenameWorktree,
+  onOpenInFinder,
+  onPruneWorktree,
   collapsed: panelCollapsed = false,
   onToggleCollapsed,
   onStartResize,
@@ -352,6 +368,20 @@ export function BranchSidebar({
             </div>
           )}
         </div>
+
+        <WorktreeSection
+          worktrees={worktrees}
+          loading={false}
+          error={null}
+          onSelectWorktree={onSelectWorktree || (() => {})}
+          onSwitchWorktree={onSwitchWorktree || (() => {})}
+          onDeleteWorktree={onDeleteWorktree}
+          onRenameWorktree={onRenameWorktree}
+          onOpenInFinder={onOpenInFinder}
+          onPruneWorktree={onPruneWorktree}
+          collapsed={collapsed["WORKTREES"]}
+          onToggleCollapsed={() => toggleSection("WORKTREES")}
+        />
       </div>
 
       {branchCtxMenu && (
