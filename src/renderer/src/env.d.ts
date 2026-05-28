@@ -13,7 +13,8 @@ import type {
   TerminalCreateResult,
   TerminalDataEvent,
   TerminalExitEvent,
-  WatchOperationResult
+  WatchOperationResult,
+  WorktreeInfo
 } from "../../shared/types";
 
 declare global {
@@ -64,6 +65,15 @@ declare global {
       terminalClose(sessionId: string): Promise<{ ok: boolean }>;
       onTerminalData(listener: (event: TerminalDataEvent) => void): () => void;
       onTerminalExit(listener: (event: TerminalExitEvent) => void): () => void;
+      worktree: {
+        list(repoPath: string): Promise<WorktreeInfo[]>;
+        create(repoPath: string, branch: string, targetPath: string): Promise<GitOperationResult>;
+        delete(repoPath: string, worktreePath: string): Promise<GitOperationResult>;
+        move(repoPath: string, oldPath: string, newPath: string): Promise<GitOperationResult>;
+        prune(repoPath: string, worktreePath: string): Promise<GitOperationResult>;
+        openInFinder(worktreePath: string): Promise<GitOperationResult>;
+        switch(worktreePath: string): Promise<GitOperationResult>;
+      };
     };
   }
 }
