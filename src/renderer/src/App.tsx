@@ -111,7 +111,10 @@ function RepoView({
   const { status, history, branches, stashes } = data.data;
   const { worktrees, refresh: refreshWorktrees } = useWorktrees(repoPath);
   const deleteWorktree = useDeleteWorktree(repoPath, refreshWorktrees);
-  const { openInFinder } = useOpenInFinder();
+  const { openInFinder: openInFinderPath } = useOpenInFinder();
+  const openInFinder = useCallback((worktree: WorktreeInfo) => {
+    openInFinderPath(worktree.path);
+  }, [openInFinderPath]);
   const { prune: pruneWorktree, loading: pruning } = usePruneWorktree(repoPath, refreshWorktrees);
   const { isOpen: isCreateWorktreeOpen, branchName: createWorktreeBranchName, isRemote: createWorktreeIsRemote, open: openCreateWorktree, close: closeCreateWorktree } = useCreateWorktree();
 
