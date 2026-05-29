@@ -3,3 +3,11 @@ dist/
 release/
 .claude
 *.log
+.agents
+.github
+.idea
+.opencode
+_bmad
+_bmad-output
+docs
+.worktrees
