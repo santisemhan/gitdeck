@@ -220,6 +220,12 @@
   border-color: var(--border-3);
   color: var(--text-1);
 }
+.branch-pill.drop-target {
+  outline: 2px dashed var(--accent);
+  outline-offset: 1px;
+  background: var(--accent-soft);
+  border-color: var(--accent-deep);
+}
 .branch-pill .pname {
   overflow: hidden;
   text-overflow: ellipsis;

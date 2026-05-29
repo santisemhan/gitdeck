@@ -495,6 +495,14 @@ export class GitService {
     return ok(result);
   }
 
+  async mergeBranch(repoPath: string, source: string, target: string): Promise<GitOperationResult> {
+    const checkout = await runGit(repoPath, ["checkout", target]);
+    if (checkout.code !== 0) return fail(checkout, "Could not switch to target branch");
+    const result = await runGit(repoPath, ["merge", source]);
+    if (result.code !== 0) return fail(result, "Merge failed");
+    return ok(result);
+  }
+
   async pull(repoPath: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["pull"]);
     if (result.code !== 0) return fail(result, this.mapNetworkError(result.stderr));

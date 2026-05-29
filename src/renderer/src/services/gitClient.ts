@@ -108,6 +108,9 @@ export const gitClient = {
   renameBranch(repoPath: string, oldName: string, newName: string): Promise<GitOperationResult> {
     return api().renameBranch(repoPath, oldName, newName);
   },
+  mergeBranch(repoPath: string, source: string, target: string): Promise<GitOperationResult> {
+    return api().mergeBranch(repoPath, source, target);
+  },
   stashList(repoPath: string): Promise<GitStashEntry[]> {
     return api().stashList(repoPath);
   },

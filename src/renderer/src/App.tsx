@@ -821,6 +821,7 @@ function RepoView({
                 onCreateBranchFrom={(refName) => void handleCreateBranchFrom(refName)}
                 onDeleteBranch={(refName) => void handleDeleteBranch(refName)}
                 onRequestRenameBranch={handleRequestRenameBranch}
+                onMergeBranch={(source, target) => void data.mergeBranch(source, target)}
                 onStashPop={(index) => void handleStashPop(index)}
                 onStashApply={(index) => void handleStashApply(index)}
                 onStashDrop={(index) => void handleStashDrop(index)}

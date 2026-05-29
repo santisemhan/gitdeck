@@ -24,6 +24,7 @@ import { FileStatusIcon } from "./FileStatusIcon";
 type BranchCtxMenu = { x: number; y: number; refName: string; isCurrent: boolean; isRemote: boolean };
 type StashCtxMenu  = { x: number; y: number; index: number; message: string };
 type CommitCtxMenu = { x: number; y: number; hash: string; title: string };
+type MergeMenu     = { x: number; y: number; source: string; target: string };
 
 interface CommitGraphProps {
   commits: Commit[];
@@ -34,6 +35,7 @@ interface CommitGraphProps {
   onCreateBranchFrom?: (refName: string) => void;
   onDeleteBranch?: (refName: string) => void;
   onRequestRenameBranch?: (name: string) => void;
+  onMergeBranch?: (source: string, target: string) => void;
   onStashPop?: (index: number) => void;
   onStashApply?: (index: number) => void;
   onStashDrop?: (index: number) => void;
@@ -53,6 +55,7 @@ export function CommitGraph({
   onCreateBranchFrom,
   onDeleteBranch,
   onRequestRenameBranch,
+  onMergeBranch,
   onStashPop,
   onStashApply,
   onStashDrop,
@@ -123,9 +126,128 @@ export function CommitGraph({
     return () => observer.disconnect();
   }, [onLoadMore, historyDone, loadingMore, commits.length]);
 
+<<<<<<< Updated upstream
   const { menu: branchCtxMenu, open: openBranchCtxMenu, close: closeBranchCtxMenu } = useContextMenu<BranchCtxMenu>();
   const { menu: stashCtxMenu, open: openStashCtxMenu, close: closeStashCtxMenu } = useContextMenu<StashCtxMenu>();
   const { menu: commitCtxMenu, open: openCommitCtxMenu, close: closeCommitCtxMenu } = useContextMenu<CommitCtxMenu>();
+=======
+  useEffect(() => {
+    setColumns((prev) => {
+      if (prev.graph >= requiredGraphWidth) return prev;
+      return { ...prev, graph: requiredGraphWidth };
+    });
+  }, [requiredGraphWidth]);
+
+  useEffect(() => {
+    writeStoredNumber(STORAGE_KEYS.commitGraphLabelsWidth, columns.labels);
+  }, [columns.labels]);
+
+  useEffect(() => {
+    writeStoredNumber(STORAGE_KEYS.commitGraphWidth, columns.graph);
+  }, [columns.graph]);
+
+  const byId = useMemo(() => {
+    const m: Record<string, Commit> = {};
+    commits.forEach((c) => {
+      m[c.id] = c;
+    });
+    return m;
+  }, [commits]);
+
+  const edges = useMemo(() => {
+    const result: {
+      fromLane: number;
+      toLane: number;
+      fromY: number;
+      toY: number;
+      color: string;
+      dashed: boolean;
+    }[] = [];
+    commits.forEach((c) => {
+      c.parents.forEach((pid, parentIdx) => {
+        const parent = byId[pid];
+        if (!parent) return;
+        const fromY = commitYById[c.id];
+        const toY = commitYById[parent.id];
+        if (!fromY || !toY) return;
+        const fromLane = c.lane;
+        const toLane = parent.lane;
+        const isMergeParent = c.parents.length > 1 && parentIdx > 0;
+        result.push({
+          fromLane,
+          toLane,
+          fromY,
+          toY,
+          color: laneColor(isMergeParent ? toLane : fromLane),
+          dashed: !!c.isStash,
+        });
+      });
+    });
+    return result;
+  }, [commits, byId, commitYById]);
+
+  const [branchCtxMenu, setBranchCtxMenu] = useState<BranchCtxMenu | null>(null);
+  const [stashCtxMenu,  setStashCtxMenu]  = useState<StashCtxMenu  | null>(null);
+  const [commitCtxMenu, setCommitCtxMenu] = useState<CommitCtxMenu | null>(null);
+  const [mergeMenu,     setMergeMenu]     = useState<MergeMenu     | null>(null);
+  const [draggingRef,   setDraggingRef]   = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!branchCtxMenu) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      setBranchCtxMenu(null);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [branchCtxMenu]);
+
+  useEffect(() => {
+    if (!stashCtxMenu) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      setStashCtxMenu(null);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [stashCtxMenu]);
+
+  useEffect(() => {
+    if (!commitCtxMenu) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      setCommitCtxMenu(null);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [commitCtxMenu]);
+>>>>>>> Stashed changes
+
+  useEffect(() => {
+    if (!mergeMenu) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      setMergeMenu(null);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [mergeMenu]);
 
   const handleCommitContextMenu = useCallback(
     (hash: string, title: string, x: number, y: number) => {
@@ -133,6 +255,19 @@ export function CommitGraph({
     },
     [openCommitCtxMenu]
   );
+
+  const handleRefDragStart = useCallback((refName: string) => {
+    setDraggingRef(refName);
+  }, []);
+
+  const handleRefDragEnd = useCallback(() => {
+    setDraggingRef(null);
+  }, []);
+
+  const handleRefDrop = useCallback((source: string, target: string, x: number, y: number) => {
+    if (source === target) return;
+    setMergeMenu({ x, y, source, target });
+  }, []);
 
   const handleRefContextMenu = useCallback(
     (refName: string, isCurrent: boolean, isRemote: boolean, x: number, y: number) => {
@@ -321,6 +456,10 @@ export function CommitGraph({
                     onRefContextMenu={handleRefContextMenu}
                     onStashContextMenu={handleStashContextMenu}
                     onCommitContextMenu={handleCommitContextMenu}
+                    draggingRef={draggingRef}
+                    onRefDragStart={handleRefDragStart}
+                    onRefDragEnd={handleRefDragEnd}
+                    onRefDrop={handleRefDrop}
                   />
                 );
               })}
@@ -459,6 +598,27 @@ export function CommitGraph({
           </button>
         </div>
       )}
+
+      {mergeMenu && (
+        <div
+          className="ctx-menu"
+          style={{ left: mergeMenu.x, top: mergeMenu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+          role="menu"
+        >
+          <button
+            type="button"
+            className="ctx-menu-item"
+            role="menuitem"
+            onClick={() => {
+              onMergeBranch?.(mergeMenu.source, mergeMenu.target);
+              setMergeMenu(null);
+            }}
+          >
+            Merge {mergeMenu.source} into {mergeMenu.target}
+          </button>
+        </div>
+      )}
     </>
   );
 }
@@ -472,9 +632,13 @@ interface CommitRowProps {
   onRefContextMenu?: (refName: string, isCurrent: boolean, isRemote: boolean, x: number, y: number) => void;
   onStashContextMenu?: (index: number, message: string, x: number, y: number) => void;
   onCommitContextMenu?: (hash: string, title: string, x: number, y: number) => void;
+  draggingRef?: string | null;
+  onRefDragStart?: (refName: string) => void;
+  onRefDragEnd?: () => void;
+  onRefDrop?: (source: string, target: string, x: number, y: number) => void;
 }
 
-function CommitRow({ commit, selected, dateLabel, onSelect, onCheckoutRef, onRefContextMenu, onStashContextMenu, onCommitContextMenu }: CommitRowProps) {
+function CommitRow({ commit, selected, dateLabel, onSelect, onCheckoutRef, onRefContextMenu, onStashContextMenu, onCommitContextMenu, draggingRef, onRefDragStart, onRefDragEnd, onRefDrop }: CommitRowProps) {
   const c = commit;
 
   return (
@@ -506,6 +670,10 @@ function CommitRow({ commit, selected, dateLabel, onSelect, onCheckoutRef, onRef
             first={idx === 0}
             onCheckoutRef={onCheckoutRef}
             onContextMenu={onRefContextMenu}
+            draggingRef={draggingRef}
+            onRefDragStart={onRefDragStart}
+            onRefDragEnd={onRefDragEnd}
+            onRefDrop={onRefDrop}
           />
         ))}
       </div>
@@ -567,12 +735,22 @@ function RefPill({
   first,
   onCheckoutRef,
   onContextMenu,
+  draggingRef,
+  onRefDragStart,
+  onRefDragEnd,
+  onRefDrop,
 }: {
   refData: CommitRef;
   first: boolean;
   onCheckoutRef?: (refName: string) => void;
   onContextMenu?: (refName: string, isCurrent: boolean, isRemote: boolean, x: number, y: number) => void;
+  draggingRef?: string | null;
+  onRefDragStart?: (refName: string) => void;
+  onRefDragEnd?: () => void;
+  onRefDrop?: (source: string, target: string, x: number, y: number) => void;
 }) {
+  const [isDropTarget, setIsDropTarget] = useState(false);
+
   if (refData.kind === "more") {
     return (
       <span className="branch-pill branch-pill-more">
@@ -586,6 +764,8 @@ function RefPill({
   const hasRemote = !isTag && !!refData.remote;
   // A pill is "remote-only" when there is no local branch — used to hide Rename/Delete
   const remoteOnly = hasRemote && !hasLocal;
+  const isBranch = refData.kind === "branch" && !!refData.name;
+  const canAcceptDrop = isBranch && !!draggingRef && draggingRef !== refData.name;
 
   return (
     <span
@@ -593,9 +773,41 @@ function RefPill({
         "branch-pill" +
         (refData.current ? " current" : "") +
         (remoteOnly ? " remote" : "") +
-        (refData.kind === "branch" ? " checkoutable" : "")
+        (refData.kind === "branch" ? " checkoutable" : "") +
+        (isDropTarget ? " drop-target" : "")
       }
       title={refData.kind === "branch" ? `${refData.name} (double click to checkout)` : refData.name}
+      draggable={isBranch}
+      onDragStart={(event) => {
+        if (!isBranch || !refData.name) return;
+        event.stopPropagation();
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", refData.name);
+        onRefDragStart?.(refData.name);
+      }}
+      onDragEnd={() => {
+        setIsDropTarget(false);
+        onRefDragEnd?.();
+      }}
+      onDragOver={(event) => {
+        if (!canAcceptDrop) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        if (!isDropTarget) setIsDropTarget(true);
+      }}
+      onDragLeave={() => {
+        if (isDropTarget) setIsDropTarget(false);
+      }}
+      onDrop={(event) => {
+        if (!isBranch || !refData.name) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setIsDropTarget(false);
+        const source = event.dataTransfer.getData("text/plain") || draggingRef || "";
+        if (source && source !== refData.name) {
+          onRefDrop?.(source, refData.name, event.clientX, event.clientY);
+        }
+      }}
       onDoubleClick={(event) => {
         event.stopPropagation();
         if (refData.kind !== "branch" || !refData.name) return;
