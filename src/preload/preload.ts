@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld("gitdeck", {
   createBranch: (repoPath: string, branch: string, startPoint?: string) => ipcRenderer.invoke(Channels.createBranch, repoPath, branch, startPoint),
   deleteBranch: (repoPath: string, name: string) => ipcRenderer.invoke(Channels.deleteBranch, repoPath, name),
   renameBranch: (repoPath: string, oldName: string, newName: string) => ipcRenderer.invoke(Channels.renameBranch, repoPath, oldName, newName),
+  mergeBranch: (repoPath: string, source: string, target: string) => ipcRenderer.invoke(Channels.mergeBranch, repoPath, source, target),
   pull: (repoPath: string) => ipcRenderer.invoke(Channels.pull, repoPath),
   push: (repoPath: string) => ipcRenderer.invoke(Channels.push, repoPath),
   cherryPick: (repoPath: string, commitHash: string) => ipcRenderer.invoke(Channels.cherryPick, repoPath, commitHash),

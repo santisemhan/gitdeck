@@ -19,6 +19,11 @@
   color: var(--text-3);
   border-bottom: 1px solid var(--border-1);
   height: 34px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-1);
+  min-width: fit-content;
 }
 .graph-header .sep { color: var(--text-disabled); margin: 0 4px; }
 .graph-header .right {
@@ -31,9 +36,56 @@
   color: var(--text-3);
   display: grid; place-items: center;
   width: 20px; height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   border-radius: 3px;
+  cursor: pointer;
 }
+.graph-header .gear:active { transform: none; }
 .graph-header .gear:hover { background: var(--bg-2); color: var(--text-1); }
+
+/* Settings gear lives in its own fixed column at the far right */
+.graph-header-cell.graph-gear-cell {
+  padding: 0;
+  justify-content: center;
+}
+.graph-header-cell.graph-gear-cell::after { display: none; }
+
+.graph-settings-pop {
+  position: absolute;
+  top: calc(100% + 2px);
+  right: 6px;
+  z-index: 80;
+  min-width: 180px;
+  background: var(--bg-1);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  padding: 5px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.32);
+}
+.graph-settings-title {
+  padding: 4px 8px 6px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.graph-settings-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-1);
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+}
+.graph-settings-item:hover { background: var(--bg-2); }
+.graph-settings-item input { cursor: pointer; accent-color: var(--accent); }
 
 .graph-scroll {
   flex: 1;
@@ -104,6 +156,20 @@
   z-index: 2;
 }
 
+.commit-row-cell.date {
+  padding-left: 10px;
+  border-left: 1px solid var(--border-1);
+  overflow: hidden;
+}
+.commit-date-text {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .commit-row.with-date-divider .commit-row-cell {
   border-top: 1px solid var(--border-1);
 }
@@ -148,18 +214,24 @@
   padding-left: 14px;
 }
 
-.graph-header-cell:last-child {
+.graph-header-cell:last-child:not(.graph-gear-cell) {
   padding-right: 14px;
 }
 
-.graph-header-cell:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 1px;
-  background: var(--border-1);
+/* Divider before the Commit date column (mirrors the row cells' border-left).
+   The other column dividers are drawn by each column's resize handle. */
+.graph-header-cell.hc-date {
+  border-left: 1px solid var(--border-1);
+}
+/* Commit date is resized from its LEFT edge (the message|date divider), since
+   the gear to its right is not a real column. The visible divider is the cell's
+   own border-left, so this handle draws no line of its own. */
+.col-resizer.col-resizer-left {
+  left: -6px;
+  right: auto;
+}
+.col-resizer.col-resizer-left::after {
+  display: none;
 }
 
 .col-resizer {
@@ -219,6 +291,12 @@
 .branch-pill.remote.checkoutable:hover {
   border-color: var(--border-3);
   color: var(--text-1);
+}
+.branch-pill.drop-target {
+  outline: 2px dashed var(--accent);
+  outline-offset: 1px;
+  background: var(--accent-soft);
+  border-color: var(--accent-deep);
 }
 .branch-pill .pname {
   overflow: hidden;

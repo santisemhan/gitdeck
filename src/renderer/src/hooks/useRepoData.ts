@@ -36,6 +36,7 @@ export interface UseRepoData {
   createBranch: (name: string, startPoint?: string) => Promise<void>;
   deleteBranch: (name: string) => Promise<void>;
   renameBranch: (oldName: string, newName: string) => Promise<void>;
+  mergeBranch: (source: string, target: string) => Promise<void>;
   stashPush: (message: string) => Promise<boolean>;
   stashPop: (index: number) => Promise<void>;
   stashApply: (index: number) => Promise<void>;
@@ -283,6 +284,17 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     [run, repoPath]
   );
 
+  const mergeBranch = useCallback(
+    async (source: string, target: string) => {
+      await run(
+        () => gitClient.mergeBranch(repoPath!, source, target),
+        `Merged ${source} into ${target}`,
+        "Merge failed"
+      );
+    },
+    [run, repoPath]
+  );
+
   const stashPush = useCallback(
     async (message: string) => run(() => gitClient.stashPush(repoPath!, message), "Stash created", "Stash failed"),
     [run, repoPath]
@@ -342,6 +354,7 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     createBranch,
     deleteBranch,
     renameBranch,
+    mergeBranch,
     stashPush,
     stashPop,
     stashApply,

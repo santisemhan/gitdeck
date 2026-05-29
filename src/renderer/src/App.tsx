@@ -19,7 +19,7 @@ import { readStoredBoolean, writeStoredBoolean } from "./utils/storage";
 import type { CSSProperties } from "react";
 
 const LEFT_PANEL_MIN_WIDTH = 180;
-const RIGHT_PANEL_MIN_WIDTH = 300;
+const RIGHT_PANEL_MIN_WIDTH = 390;
 const LEFT_PANEL_MAX_FRACTION = 0.7;
 const RIGHT_PANEL_MAX_FRACTION = 0.35;
 const CENTER_MIN_WIDTH = 200;
@@ -821,6 +821,7 @@ function RepoView({
                 onCreateBranchFrom={(refName) => void handleCreateBranchFrom(refName)}
                 onDeleteBranch={(refName) => void handleDeleteBranch(refName)}
                 onRequestRenameBranch={handleRequestRenameBranch}
+                onMergeBranch={(source, target) => void data.mergeBranch(source, target)}
                 onStashPop={(index) => void handleStashPop(index)}
                 onStashApply={(index) => void handleStashApply(index)}
                 onStashDrop={(index) => void handleStashDrop(index)}
