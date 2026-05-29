@@ -16,6 +16,7 @@ import { useRepoData } from "./hooks/useRepoData";
 import { usePanelWidth } from "./hooks/usePanelWidth";
 import { useWorktrees } from "./hooks/useWorktrees";
 import { useDeleteWorktree } from "./hooks/useDeleteWorktree";
+import { useOpenInFinder } from "./hooks/useOpenInFinder";
 import { gitClient } from "./services/gitClient";
 import { STORAGE_KEYS } from "./constants/storageKeys";
 import { readStoredBoolean, writeStoredBoolean } from "./utils/storage";
@@ -107,6 +108,7 @@ function RepoView({
   const { status, history, branches, stashes } = data.data;
   const { worktrees, refresh: refreshWorktrees } = useWorktrees(repoPath);
   const deleteWorktree = useDeleteWorktree(repoPath, refreshWorktrees);
+  const { openInFinder } = useOpenInFinder();
 
   const [mainView, setMainView] = useState<MainView>("graph");
   const [rightPanelMode, setRightPanelMode] = useState<RightPanelMode>("localChanges");
@@ -836,6 +838,7 @@ function RepoView({
               onSelectWorktree={(wt) => void handleSelectWorktree(wt)}
               onSwitchWorktree={(wt) => void handleSwitchWorktree(wt)}
               onDeleteWorktree={deleteWorktree.open}
+              onOpenInFinder={openInFinder}
               collapsed={leftPanelCollapsed}
               onToggleCollapsed={toggleLeftPanel}
               onStartResize={leftPanel.startResize}
