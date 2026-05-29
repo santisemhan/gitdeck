@@ -12,6 +12,7 @@ import {
   IconArrowUp,
   IconArrowDown,
   IconArrowClockwise,
+  IconPlus,
 } from "./icons";
 
 interface WorktreeSectionProps {
@@ -24,6 +25,7 @@ interface WorktreeSectionProps {
   onRenameWorktree?: (worktree: WorktreeInfo) => void;
   onOpenInFinder?: (worktree: WorktreeInfo) => void;
   onPruneWorktree?: (worktree: WorktreeInfo) => void;
+  onAddWorktree?: () => void;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
 }
@@ -44,6 +46,7 @@ export function WorktreeSection({
   onRenameWorktree,
   onOpenInFinder,
   onPruneWorktree,
+  onAddWorktree,
   collapsed = false,
   onToggleCollapsed,
 }: WorktreeSectionProps) {
@@ -86,6 +89,20 @@ export function WorktreeSection({
         <span className={"count" + (worktrees.length === 0 ? " zero" : "")}>
           {loading ? "..." : worktrees.length}
         </span>
+        {onAddWorktree && (
+          <button
+            type="button"
+            className="section-add-btn"
+            title="Create worktree"
+            aria-label="Create worktree"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddWorktree();
+            }}
+          >
+            <IconPlus size={12} />
+          </button>
+        )}
       </div>
 
       {!collapsed && (

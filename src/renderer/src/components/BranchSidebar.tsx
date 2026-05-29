@@ -303,6 +303,20 @@ export function BranchSidebar({
                 {grouped._flat.filter(filterFn).map((b) => renderBranchRow(b))}
                 {totalLocal === 0 && <div className="empty-row">No branches</div>}
               </div>
+              <WorktreeSection
+                worktrees={worktrees}
+                loading={false}
+                error={null}
+                onSelectWorktree={onSelectWorktree || (() => {})}
+                onSwitchWorktree={onSwitchWorktree || (() => {})}
+                onDeleteWorktree={onDeleteWorktree}
+                onRenameWorktree={onRenameWorktree}
+                onOpenInFinder={onOpenInFinder}
+                onPruneWorktree={onPruneWorktree}
+                onAddWorktree={openCreateDialog}
+                collapsed={collapsed["WORKTREES"]}
+                onToggleCollapsed={() => toggleSection("WORKTREES")}
+              />
             </div>
           )}
         </div>
@@ -380,20 +394,6 @@ export function BranchSidebar({
             </div>
           )}
         </div>
-
-        <WorktreeSection
-          worktrees={worktrees}
-          loading={false}
-          error={null}
-          onSelectWorktree={onSelectWorktree || (() => {})}
-          onSwitchWorktree={onSwitchWorktree || (() => {})}
-          onDeleteWorktree={onDeleteWorktree}
-          onRenameWorktree={onRenameWorktree}
-          onOpenInFinder={onOpenInFinder}
-          onPruneWorktree={onPruneWorktree}
-          collapsed={collapsed["WORKTREES"]}
-          onToggleCollapsed={() => toggleSection("WORKTREES")}
-        />
       </div>
 
       {branchCtxMenu && (
