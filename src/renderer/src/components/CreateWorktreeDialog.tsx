@@ -23,8 +23,7 @@ export function CreateWorktreeDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createBranch, setCreateBranch] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const getDefaultPath = useCallback((repo: string, branch: string): string => {
     const normalizedRepo = repo.replace(/[\\/]+$/, "");
@@ -41,51 +40,15 @@ export function CreateWorktreeDialog({
 
   useEffect(() => {
     if (isOpen && repoPath) {
-      previousFocusRef.current = document.activeElement as HTMLElement;
       const defaultPath = getDefaultPath(repoPath, branchName);
       setTargetPath(defaultPath);
       setError(null);
       setCreateBranch(false);
       setTimeout(() => {
-        dialogRef.current?.focus();
+        inputRef.current?.focus();
       }, 0);
     }
-    return () => {
-      previousFocusRef.current?.focus();
-    };
   }, [isOpen, repoPath, branchName, getDefaultPath]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-      if (e.key === "Tab" && dialogRef.current) {
-        const focusableElements = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (e.shiftKey) {
-          if (document.activeElement === firstElement) {
-            e.preventDefault();
-            lastElement?.focus();
-          }
-        } else {
-          if (document.activeElement === lastElement) {
-            e.preventDefault();
-            firstElement?.focus();
-          }
-        }
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
 
   const validatePath = (path: string): string | null => {
     if (!path.trim()) {
@@ -162,79 +125,60 @@ export function CreateWorktreeDialog({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !loading) {
-      handleCreate();
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void handleCreate();
+  };
+
+  const handleCancel = () => {
+    setTargetPath("");
+    setError(null);
+    setCreateBranch(false);
+    onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="dialog-overlay" onClick={onClose}>
-      <div
-        ref={dialogRef}
-        className="dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="dialog-title"
-        onClick={(e) => e.stopPropagation()}
-        tabIndex={-1}
-      >
-        <div className="dialog-header">
-          <h3 id="dialog-title">Create Worktree</h3>
-          <button type="button" className="dialog-close" onClick={onClose} aria-label="Close dialog">
-            ×
-          </button>
-        </div>
-        <div className="dialog-body">
-          <div className="form-group">
-            <label htmlFor="branch-name">Branch:</label>
-            <input
-              id="branch-name"
-              type="text"
-              value={branchName}
-              disabled
-              className="form-input"
-            />
-          </div>
-          {isRemote && (
-            <div className="form-group">
-              <label htmlFor="create-branch">
-                <input
-                  id="create-branch"
-                  type="checkbox"
-                  checked={createBranch}
-                  onChange={(e) => setCreateBranch(e.target.checked)}
-                />
-                Create local tracking branch
-              </label>
-            </div>
-          )}
-          <div className="form-group">
-            <label htmlFor="target-path">Target Path:</label>
-            <input
-              id="target-path"
-              type="text"
-              value={targetPath}
-              onChange={(e) => setTargetPath(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="form-input"
-              placeholder="/path/to/worktree"
-              autoFocus
-            />
-            {error && <div className="form-error">{error}</div>}
-          </div>
-        </div>
-        <div className="dialog-footer">
-          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>
-            Cancel
-          </button>
-          <button type="button" className="btn btn-primary" onClick={handleCreate} disabled={loading}>
-            {loading ? "Creating..." : "Create"}
-          </button>
-        </div>
+    <form
+      className="create-branch-banner"
+      role="dialog"
+      onSubmit={handleSubmit}
+    >
+      <span className="create-branch-banner-text">
+        Create worktree from {branchName}
+      </span>
+      {isRemote && (
+        <label className="create-branch-banner-text" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <input
+            type="checkbox"
+            checked={createBranch}
+            onChange={(e) => setCreateBranch(e.target.checked)}
+          />
+          Create branch
+        </label>
+      )}
+      <input
+        ref={inputRef}
+        className="create-branch-input"
+        value={targetPath}
+        onChange={(e) => setTargetPath(e.target.value)}
+        placeholder="/path/to/worktree"
+      />
+      {error && <span className="create-branch-banner-text" style={{ color: "#ff6b6b" }}>{error}</span>}
+      <div className="create-branch-actions">
+        <button className="create-branch-btn primary" type="submit" disabled={loading}>
+          {loading ? "Creating..." : "Create"}
+        </button>
+        <button
+          className="create-branch-btn"
+          type="button"
+          onClick={handleCancel}
+          disabled={loading}
+        >
+          Cancel
+        </button>
       </div>
-    </div>
+    </form>
   );
 }
