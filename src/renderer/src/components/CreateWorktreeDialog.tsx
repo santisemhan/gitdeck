@@ -90,7 +90,8 @@ export function CreateWorktreeDialog({
     setError(null);
 
     try {
-      const result = await gitClient.createWorktree(repoPath, branchName, targetPath);
+      const branchToUse = branchName || worktreeName.trim();
+      const result = await gitClient.createWorktree(repoPath, branchToUse, targetPath);
       if (result.ok) {
         toast.success(`Worktree created at .worktrees/${worktreeName.trim()}`);
         onCreated();
@@ -130,7 +131,7 @@ export function CreateWorktreeDialog({
       onSubmit={handleSubmit}
     >
       <span className="create-branch-banner-text">
-        Create worktree from {branchName}
+        Create worktree {branchName ? `from ${branchName}` : ""}
       </span>
       {isRemote && (
         <label className="create-branch-banner-text" style={{ display: "flex", alignItems: "center", gap: 4 }}>
