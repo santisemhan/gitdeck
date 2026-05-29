@@ -27,15 +27,8 @@ export function CreateWorktreeDialog({
 
   const getDefaultPath = useCallback((repo: string, branch: string): string => {
     const normalizedRepo = repo.replace(/[\\/]+$/, "");
-    const lastSeparator = Math.max(
-      normalizedRepo.lastIndexOf("/"),
-      normalizedRepo.lastIndexOf("\\")
-    );
-    if (lastSeparator === -1) {
-      return branch;
-    }
-    const parentDir = normalizedRepo.substring(0, lastSeparator);
-    return `${parentDir}/${branch}`;
+    const branchName = branch || "my-feature";
+    return `${normalizedRepo}/.worktrees/${branchName}`;
   }, []);
 
   useEffect(() => {
@@ -62,8 +55,11 @@ export function CreateWorktreeDialog({
       return "Cannot create worktree at repository root";
     }
 
-    if (normalizedPath.startsWith(normalizedRepo + "/") || normalizedPath.startsWith(normalizedRepo + "\\")) {
-      return "Cannot create worktree inside repository directory";
+    const isInsideWorktreesDir = normalizedPath.startsWith(normalizedRepo + "/.worktrees/") || normalizedPath.startsWith(normalizedRepo + "\\.worktrees\\");
+    const isInsideRepo = normalizedPath.startsWith(normalizedRepo + "/") || normalizedPath.startsWith(normalizedRepo + "\\");
+
+    if (isInsideRepo && !isInsideWorktreesDir) {
+      return "Cannot create worktree inside repository directory (use .worktrees/ subdirectory)";
     }
 
     if (path.includes("..") || path.includes("~")) {

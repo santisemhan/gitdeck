@@ -38,7 +38,7 @@ describe("CreateWorktreeDialog", () => {
   it("shows default target path", () => {
     setup();
     const targetInput = screen.getByPlaceholderText("/path/to/worktree");
-    expect(targetInput).toHaveValue("/Users/test/repos/feature-branch");
+    expect(targetInput).toHaveValue("/Users/test/repos/my-app/.worktrees/feature-branch");
   });
 
   it("validates empty target path", async () => {
@@ -57,10 +57,10 @@ describe("CreateWorktreeDialog", () => {
     const onCreated = vi.fn();
     setup({ onCreated });
     const targetInput = screen.getByPlaceholderText("/path/to/worktree");
-    fireEvent.change(targetInput, { target: { value: "/Users/test/repos/my-app/feature-branch" } });
+    fireEvent.change(targetInput, { target: { value: "/Users/test/repos/my-app/src" } });
     fireEvent.click(screen.getByText("Create"));
     await waitFor(() => {
-      expect(screen.getByText("Cannot create worktree inside repository directory")).toBeInTheDocument();
+      expect(screen.getByText("Cannot create worktree inside repository directory (use .worktrees/ subdirectory)")).toBeInTheDocument();
     });
     expect(onCreated).not.toHaveBeenCalled();
   });
@@ -85,7 +85,7 @@ describe("CreateWorktreeDialog", () => {
     setup({ onCreated, onClose });
     fireEvent.click(screen.getByText("Create"));
     await waitFor(() => {
-      expect(gitClient.createWorktree).toHaveBeenCalledWith("/Users/test/repos/my-app", "feature-branch", "/Users/test/repos/feature-branch");
+      expect(gitClient.createWorktree).toHaveBeenCalledWith("/Users/test/repos/my-app", "feature-branch", "/Users/test/repos/my-app/.worktrees/feature-branch");
     });
     expect(onCreated).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
