@@ -66,6 +66,21 @@ export function formatDate(iso: string): string {
   return `${dd}/${mm}/${yyyy} @ ${hh}:${min}`;
 }
 
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Short absolute date + 24h time for the graph's commit-date column, e.g. "29 May 2026 14:30". */
+export function formatCommitDateTime(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mon = MONTHS_SHORT[d.getMonth()];
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${dd} ${mon} ${yyyy} ${hh}:${min}`;
+}
+
 export function formatRelativeTime(
   iso: string,
   options?: { empty?: string; invalid?: string }

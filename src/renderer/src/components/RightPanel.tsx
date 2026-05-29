@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import type { ChangedFile, Commit } from "../data/types";
-import { initials, splitPath, summarizeCounts } from "../data/mock";
+import { splitPath, summarizeCounts } from "../data/mock";
 import { formatDate } from "../utils/date";
+import { Avatar } from "./Avatar";
 import { FileStatusIcon } from "./FileStatusIcon";
 import { IconCaretLeft, IconCaretRight, IconTrash } from "./icons";
 import { PanelSection } from "./PanelSection";
@@ -144,10 +145,11 @@ interface ChangedFileRowProps {
   selected: boolean;
   onSelect: (file: ChangedFile) => void;
   actionLabel?: string;
+  actionVariant?: "stage" | "unstage";
   onAction?: (file: ChangedFile) => void;
 }
 
-function ChangedFileRow({ file, selected, onSelect, actionLabel, onAction }: ChangedFileRowProps) {
+function ChangedFileRow({ file, selected, onSelect, actionLabel, actionVariant, onAction }: ChangedFileRowProps) {
   const { dir, file: fname } = splitPath(file.path);
   return (
     <div
@@ -163,7 +165,7 @@ function ChangedFileRow({ file, selected, onSelect, actionLabel, onAction }: Cha
       </span>
       {actionLabel && (
         <button
-          className="stage-btn"
+          className={"stage-btn" + (actionVariant ? ` ${actionVariant}` : "")}
           onClick={(e) => {
             e.stopPropagation();
             onAction?.(file);
@@ -395,6 +397,7 @@ function LocalChangesPanel({
                 selected={f.id === selectedFileId}
                 onSelect={onSelectFile}
                 actionLabel="Stage"
+                actionVariant="stage"
                 onAction={onStageFile}
               />
             ))}
@@ -418,7 +421,7 @@ function LocalChangesPanel({
             action={
               stagedFiles.length > 0 ? (
                 <button
-                  className="stage-all"
+                  className="stage-all unstage-all"
                   onClick={(e) => {
                     e.stopPropagation();
                     onUnstageAll();
@@ -438,6 +441,7 @@ function LocalChangesPanel({
                 selected={f.id === selectedFileId}
                 onSelect={onSelectFile}
                 actionLabel="Unstage"
+                actionVariant="unstage"
                 onAction={onUnstageFile}
               />
             ))}
@@ -520,7 +524,7 @@ function CommitDetailsPanel({
       <div className="author-strip">
         {showAuthor ? (
           <>
-            <div className="avatar">{initials(commit.author)}</div>
+            <Avatar name={commit.author} email={commit.email} />
             <div>
               <div className="who">{commit.author}</div>
               <div className="when">authored {formatDate(commit.dateISO)}</div>

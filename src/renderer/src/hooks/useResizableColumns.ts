@@ -17,7 +17,11 @@ export interface UseResizableColumnsOptions<K extends string> {
 
 export interface UseResizableColumns<K extends string> {
   widths: Record<K, number>;
-  startResize: (key: K) => (event: ReactMouseEvent) => void;
+  /**
+   * Begin a resize for `key`. Pass `invert` when the drag handle sits on the
+   * column's left edge, so dragging left grows the column instead of shrinking it.
+   */
+  startResize: (key: K, invert?: boolean) => (event: ReactMouseEvent) => void;
 }
 
 function resolveMin(min: MinValue): number {
@@ -46,12 +50,12 @@ export function useResizableColumns<K extends string>(
 
   const minRef = useRef(min);
   minRef.current = min;
-  const resizeRef = useRef<{ key: K; startX: number; startWidth: number } | null>(null);
+  const resizeRef = useRef<{ key: K; startX: number; startWidth: number; invert: boolean } | null>(null);
 
   const startResize = useCallback(
-    (key: K) => (event: ReactMouseEvent) => {
+    (key: K, invert = false) => (event: ReactMouseEvent) => {
       event.preventDefault();
-      resizeRef.current = { key, startX: event.clientX, startWidth: widths[key] };
+      resizeRef.current = { key, startX: event.clientX, startWidth: widths[key], invert };
     },
     [widths],
   );
@@ -61,7 +65,8 @@ export function useResizableColumns<K extends string>(
       const active = resizeRef.current;
       if (!active) return;
       const minWidth = resolveMin(minRef.current[active.key]);
-      const next = Math.max(minWidth, active.startWidth + (event.clientX - active.startX));
+      const delta = event.clientX - active.startX;
+      const next = Math.max(minWidth, active.startWidth + (active.invert ? -delta : delta));
       setWidths((prev) => (prev[active.key] === next ? prev : { ...prev, [active.key]: next }));
     };
     const stopResize = () => {

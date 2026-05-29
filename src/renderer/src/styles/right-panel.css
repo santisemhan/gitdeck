@@ -164,6 +164,10 @@
   color: #0f1014;
   flex-shrink: 0;
 }
+.author-strip img.avatar {
+  object-fit: cover;
+  background: var(--bg-3);
+}
 .author-strip .who { font-size: 13px; color: var(--text-1); font-weight: 500; }
 .author-strip .when { font-size: 11px; color: var(--text-3); }
 .author-strip .parent {
@@ -322,6 +326,29 @@
 .file-row:hover .stage-btn { opacity: 1; }
 .file-row .stage-btn:hover { color: var(--text-1); background: var(--bg-4); }
 
+/* Colored stage / unstage actions — green matches "Stage All Changes" (accent),
+   red matches "Unstage All". */
+.file-row .stage-btn.stage {
+  color: var(--accent);
+  border-color: var(--accent-deep);
+  background: var(--accent-soft);
+}
+.file-row .stage-btn.stage:hover {
+  color: #0f1014;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.file-row .stage-btn.unstage {
+  color: var(--del);
+  border-color: var(--del);
+  background: var(--del-soft);
+}
+.file-row .stage-btn.unstage:hover {
+  color: #0f1014;
+  background: var(--del);
+  border-color: var(--del);
+}
+
 /* Subsections (Unstaged / Staged) */
 .subsection {
   border-top: 1px solid var(--border-1);
@@ -381,6 +408,16 @@
   background: var(--accent-soft);
   border-color: var(--accent-deep);
   color: var(--accent);
+}
+.subsection .head .stage-all.unstage-all {
+  background: var(--del-soft);
+  border-color: var(--del);
+  color: var(--del);
+}
+.subsection .head .stage-all.unstage-all:hover {
+  background: var(--del);
+  border-color: var(--del);
+  color: #0f1014;
 }
 
 /* Commit form */

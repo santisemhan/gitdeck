@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { Commit, CommitRef } from "../data/types";
 import { STORAGE_KEYS } from "../constants/storageKeys";
-import { dateGroupLabel, toDateGroup, type DateGroup } from "../utils/date";
+import { dateGroupLabel, formatCommitDateTime, toDateGroup, type DateGroup } from "../utils/date";
+import { readStoredBoolean, writeStoredBoolean } from "../utils/storage";
 import { useContextMenu } from "../hooks/useContextMenu";
 import { useResizableColumns } from "../hooks/useResizableColumns";
 import {
@@ -25,6 +26,19 @@ type BranchCtxMenu = { x: number; y: number; refName: string; isCurrent: boolean
 type StashCtxMenu  = { x: number; y: number; index: number; message: string };
 type CommitCtxMenu = { x: number; y: number; hash: string; title: string };
 type MergeMenu     = { x: number; y: number; source: string; target: string };
+
+/** Fixed width of the optional "Commit date" column. */
+const DATE_COL_W = 168;
+
+/** Fixed width of the always-present settings (gear) column. */
+const GEAR_COL_W = 34;
+
+/** Toggleable graph columns (the graph lane column itself is always shown). */
+interface ColumnVisibility {
+  labels: boolean;
+  message: boolean;
+  date: boolean;
+}
 
 interface CommitGraphProps {
   commits: Commit[];
@@ -99,12 +113,13 @@ export function CommitGraph({
   );
 
   const { widths: columns, startResize } = useResizableColumns({
-    keys: ["labels", "graph"] as const,
-    initial: { labels: 200, graph: 60 },
-    min: minWidths,
+    keys: ["labels", "graph", "date"] as const,
+    initial: { labels: 200, graph: 60, date: DATE_COL_W },
+    min: { ...minWidths, date: 80 },
     storageKeys: {
       labels: STORAGE_KEYS.commitGraphLabelsWidth,
       graph: STORAGE_KEYS.commitGraphWidth,
+      date: STORAGE_KEYS.commitGraphDateWidth,
     },
   });
 
@@ -131,6 +146,45 @@ export function CommitGraph({
   const { menu: commitCtxMenu, open: openCommitCtxMenu, close: closeCommitCtxMenu } = useContextMenu<CommitCtxMenu>();
   const { menu: mergeMenu, open: openMergeMenu, close: closeMergeMenu } = useContextMenu<MergeMenu>();
   const [draggingRef, setDraggingRef] = useState<string | null>(null);
+
+  const [cols, setCols] = useState<ColumnVisibility>(() => ({
+    labels: readStoredBoolean(STORAGE_KEYS.commitGraphShowLabels, true),
+    message: readStoredBoolean(STORAGE_KEYS.commitGraphShowMessage, true),
+    date: readStoredBoolean(STORAGE_KEYS.commitGraphShowDate, true),
+  }));
+  const [showColumnSettings, setShowColumnSettings] = useState(false);
+
+  useEffect(() => {
+    writeStoredBoolean(STORAGE_KEYS.commitGraphShowLabels, cols.labels);
+  }, [cols.labels]);
+  useEffect(() => {
+    writeStoredBoolean(STORAGE_KEYS.commitGraphShowMessage, cols.message);
+  }, [cols.message]);
+  useEffect(() => {
+    writeStoredBoolean(STORAGE_KEYS.commitGraphShowDate, cols.date);
+  }, [cols.date]);
+
+  useEffect(() => {
+    if (!showColumnSettings) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      if (e instanceof MouseEvent) {
+        const target = e.target as HTMLElement | null;
+        if (target?.closest(".graph-settings-pop") || target?.closest(".graph-settings-btn")) return;
+      }
+      setShowColumnSettings(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [showColumnSettings]);
+
+  const toggleColumn = useCallback((key: keyof ColumnVisibility) => {
+    setCols((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
   const handleCommitContextMenu = useCallback(
     (hash: string, title: string, x: number, y: number) => {
@@ -169,35 +223,84 @@ export function CommitGraph({
   const totalH = commits.length * ROW_H;
   const svgW = columns.graph;
   const graphGrid = {
-    ["--branch-col" as string]: `${columns.labels}px`,
+    // The SVG overlay is offset by --branch-col; collapse it to 0 when the
+    // labels column is hidden so the lanes stay aligned with the graph column.
+    ["--branch-col" as string]: cols.labels ? `${columns.labels}px` : "0px",
     ["--graph-col" as string]: `${columns.graph}px`,
   } as CSSProperties;
+
+  const gridTemplate = [
+    cols.labels ? `${columns.labels}px` : null,
+    `${columns.graph}px`,
+    cols.message ? "minmax(0, 1fr)" : null,
+    cols.date ? `${columns.date}px` : null,
+    // Always-present track for the settings gear so it never overlaps a column.
+    `${GEAR_COL_W}px`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const gridStyle = { gridTemplateColumns: gridTemplate } as CSSProperties;
 
   return (
     <>
       <div className="graph-shell" style={graphGrid}>
-        <div className="graph-header">
-          <div className="graph-header-cell">
-            <span>Branch</span>
-            <span className="sep"> / </span>
-            <span>Tag</span>
-            <button className="col-resizer" onMouseDown={startResize("labels")} aria-label="Resize Branch/Tag column" />
-          </div>
+        <div className="graph-scroll">
+        <div className="graph-header" style={gridStyle}>
+          {cols.labels && (
+            <div className="graph-header-cell">
+              <span>Branch</span>
+              <span className="sep"> / </span>
+              <span>Tag</span>
+              <button className="col-resizer" onMouseDown={startResize("labels")} aria-label="Resize Branch/Tag column" />
+            </div>
+          )}
           <div className="graph-header-cell">
             <span>Graph</span>
             <button className="col-resizer" onMouseDown={startResize("graph")} aria-label="Resize Graph column" />
           </div>
-          <div className="graph-header-row graph-header-cell">
-            <span>Commit message</span>
-            <span className="right">
-              <button className="gear" title="Graph settings">
-                <IconGear size={14} />
-              </button>
-            </span>
+          {cols.message && (
+            <div className="graph-header-cell" style={{ paddingLeft: 6 }}>
+              <span>Commit message</span>
+            </div>
+          )}
+          {cols.date && (
+            <div className="graph-header-cell hc-date" style={{ paddingLeft: 10 }}>
+              <button className="col-resizer col-resizer-left" onMouseDown={startResize("date", true)} aria-label="Resize Commit date column" />
+              <span>Commit date</span>
+            </div>
+          )}
+          <div className="graph-header-cell graph-gear-cell">
+            <button
+              className="gear graph-settings-btn"
+              title="Graph settings"
+              aria-label="Graph settings"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowColumnSettings((v) => !v);
+              }}
+            >
+              <IconGear size={14} />
+            </button>
           </div>
+          {showColumnSettings && (
+            <div className="graph-settings-pop" role="menu" onMouseDown={(e) => e.stopPropagation()}>
+              <div className="graph-settings-title">Columns</div>
+              <label className="graph-settings-item">
+                <input type="checkbox" checked={cols.labels} onChange={() => toggleColumn("labels")} />
+                <span>Branch / Tag</span>
+              </label>
+              <label className="graph-settings-item">
+                <input type="checkbox" checked={cols.message} onChange={() => toggleColumn("message")} />
+                <span>Commit message</span>
+              </label>
+              <label className="graph-settings-item">
+                <input type="checkbox" checked={cols.date} onChange={() => toggleColumn("date")} />
+                <span>Commit date</span>
+              </label>
+            </div>
+          )}
         </div>
 
-        <div className="graph-scroll">
           <div className="graph-stack">
             <svg
               width={svgW}
@@ -310,22 +413,21 @@ export function CommitGraph({
               if (c.isMerge) {
                 return (
                   <g key={c.id}>
-                    <circle cx={cx} cy={cy} r={NODE_R + 1} fill="var(--bg-1)" stroke={color} strokeWidth="2.5" />
-                    <circle cx={cx} cy={cy} r={2.5} fill={sel ? color : "var(--bg-3)"} />
+                    <circle cx={cx} cy={cy} r={NODE_R - 2} fill={color} stroke={color} strokeWidth="2" />
                   </g>
                 );
               }
 
               return (
                 <g key={c.id}>
-                  <circle cx={cx} cy={cy} r={NODE_R} fill="var(--bg-1)" stroke={color} strokeWidth="2.5" />
-                  <circle cx={cx} cy={cy} r={2.8} fill={sel ? color : "var(--bg-3)"} />
+                  <circle cx={cx} cy={cy} r={NODE_R} fill="var(--bg-1)" stroke={color} strokeWidth="2" />
+                  {sel && <circle cx={cx} cy={cy} r={NODE_R + 1.5} fill="none" stroke={color} strokeWidth="2" />}
                 </g>
               );
             })}
             </svg>
 
-            <div className="graph-list" role="list">
+            <div className="graph-list" role="list" style={gridStyle}>
               {rows.map((row) => {
                 const c = row.commit;
                 return (
@@ -334,6 +436,7 @@ export function CommitGraph({
                     commit={c}
                     selected={c.id === selectedCommitId}
                     dateLabel={row.dateLabel}
+                    cols={cols}
                     onSelect={() => (c.isWip ? onSelectWip() : onSelectCommit(c))}
                     onCheckoutRef={onCheckoutRef}
                     onRefContextMenu={handleRefContextMenu}
@@ -510,6 +613,7 @@ interface CommitRowProps {
   commit: Commit;
   selected: boolean;
   dateLabel?: string;
+  cols: ColumnVisibility;
   onSelect: () => void;
   onCheckoutRef?: (refName: string) => void;
   onRefContextMenu?: (refName: string, isCurrent: boolean, isRemote: boolean, x: number, y: number) => void;
@@ -521,7 +625,7 @@ interface CommitRowProps {
   onRefDrop?: (source: string, target: string, x: number, y: number) => void;
 }
 
-function CommitRow({ commit, selected, dateLabel, onSelect, onCheckoutRef, onRefContextMenu, onStashContextMenu, onCommitContextMenu, draggingRef, onRefDragStart, onRefDragEnd, onRefDrop }: CommitRowProps) {
+function CommitRow({ commit, selected, dateLabel, cols, onSelect, onCheckoutRef, onRefContextMenu, onStashContextMenu, onCommitContextMenu, draggingRef, onRefDragStart, onRefDragEnd, onRefDrop }: CommitRowProps) {
   const c = commit;
 
   return (
@@ -545,24 +649,27 @@ function CommitRow({ commit, selected, dateLabel, onSelect, onCheckoutRef, onRef
         }
       }}
     >
-      <div className="commit-row-cell labels">
-        {(c.refs || []).map((r, idx) => (
-          <RefPill
-            key={idx}
-            refData={r}
-            first={idx === 0}
-            onCheckoutRef={onCheckoutRef}
-            onContextMenu={onRefContextMenu}
-            draggingRef={draggingRef}
-            onRefDragStart={onRefDragStart}
-            onRefDragEnd={onRefDragEnd}
-            onRefDrop={onRefDrop}
-          />
-        ))}
-      </div>
+      {cols.labels && (
+        <div className="commit-row-cell labels">
+          {(c.refs || []).map((r, idx) => (
+            <RefPill
+              key={idx}
+              refData={r}
+              first={idx === 0}
+              onCheckoutRef={onCheckoutRef}
+              onContextMenu={onRefContextMenu}
+              draggingRef={draggingRef}
+              onRefDragStart={onRefDragStart}
+              onRefDragEnd={onRefDragEnd}
+              onRefDrop={onRefDrop}
+            />
+          ))}
+        </div>
+      )}
 
       <div className="commit-row-cell graph" />
 
+      {cols.message && (
       <div className="commit-row-cell msg">
         {dateLabel && <span className="commit-date-chip">{dateLabel}</span>}
         {c.isWip ? (
@@ -609,6 +716,15 @@ function CommitRow({ commit, selected, dateLabel, onSelect, onCheckoutRef, onRef
           </span>
         )}
       </div>
+      )}
+
+      {cols.date && (
+        <div className="commit-row-cell date">
+          {!c.isWip && <span className="commit-date-text">{formatCommitDateTime(c.dateISO)}</span>}
+        </div>
+      )}
+
+      <div className="commit-row-cell gear-spacer" />
     </div>
   );
 }
@@ -713,3 +829,4 @@ function RefPill({
     </span>
   );
 }
+
