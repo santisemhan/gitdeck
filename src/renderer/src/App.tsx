@@ -18,6 +18,8 @@ import { useWorktrees } from "./hooks/useWorktrees";
 import { useDeleteWorktree } from "./hooks/useDeleteWorktree";
 import { useOpenInFinder } from "./hooks/useOpenInFinder";
 import { usePruneWorktree } from "./hooks/usePruneWorktree";
+import { useCreateWorktree } from "./hooks/useCreateWorktree";
+import { CreateWorktreeDialog } from "./components/CreateWorktreeDialog";
 import { gitClient } from "./services/gitClient";
 import { STORAGE_KEYS } from "./constants/storageKeys";
 import { readStoredBoolean, writeStoredBoolean } from "./utils/storage";
@@ -111,6 +113,7 @@ function RepoView({
   const deleteWorktree = useDeleteWorktree(repoPath, refreshWorktrees);
   const { openInFinder } = useOpenInFinder();
   const { prune: pruneWorktree, loading: pruning } = usePruneWorktree(repoPath, refreshWorktrees);
+  const { isOpen: isCreateWorktreeOpen, branchName: createWorktreeBranchName, isRemote: createWorktreeIsRemote, open: openCreateWorktree, close: closeCreateWorktree } = useCreateWorktree();
 
   const [mainView, setMainView] = useState<MainView>("graph");
   const [rightPanelMode, setRightPanelMode] = useState<RightPanelMode>("localChanges");
@@ -743,6 +746,15 @@ function RepoView({
           </form>
         )}
 
+        <CreateWorktreeDialog
+          isOpen={isCreateWorktreeOpen}
+          branchName={createWorktreeBranchName}
+          isRemote={createWorktreeIsRemote}
+          repoPath={repoPath}
+          onClose={closeCreateWorktree}
+          onCreated={refreshWorktrees}
+        />
+
         {showRenameBranchBanner && (
           <form
             className="create-branch-banner"
@@ -842,6 +854,7 @@ function RepoView({
               onDeleteWorktree={deleteWorktree.open}
               onOpenInFinder={openInFinder}
               onPruneWorktree={pruneWorktree}
+              onOpenCreateWorktree={(branchName, isRemote) => openCreateWorktree(branchName, isRemote)}
               collapsed={leftPanelCollapsed}
               onToggleCollapsed={toggleLeftPanel}
               onStartResize={leftPanel.startResize}

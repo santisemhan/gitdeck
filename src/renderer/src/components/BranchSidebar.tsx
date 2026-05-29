@@ -10,7 +10,6 @@ import {
 import type { LocalBranch, RemoteBranch } from "../data/types";
 import type { WorktreeInfo } from "../../../shared/types";
 import { useContextMenu } from "../hooks/useContextMenu";
-import { useCreateWorktree } from "../hooks/useCreateWorktree";
 import {
   IconArrowDown,
   IconArrowUp,
@@ -44,6 +43,7 @@ interface BranchSidebarProps {
   onRenameWorktree?: (worktree: WorktreeInfo) => void;
   onOpenInFinder?: (worktree: WorktreeInfo) => void;
   onPruneWorktree?: (worktree: WorktreeInfo) => void;
+  onOpenCreateWorktree?: (branchName: string, isRemote: boolean) => void;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
   onStartResize?: (event: ReactMouseEvent) => void;
@@ -69,6 +69,7 @@ export function BranchSidebar({
   onRenameWorktree,
   onOpenInFinder,
   onPruneWorktree,
+  onOpenCreateWorktree,
   collapsed: panelCollapsed = false,
   onToggleCollapsed,
   onStartResize,
@@ -108,8 +109,6 @@ export function BranchSidebar({
   };
   const { menu: branchCtxMenu, open: openBranchCtxMenu, close: closeBranchCtxMenu } =
     useContextMenu<BranchCtxMenuState>();
-
-  const { isOpen: isCreateDialogOpen, branchName: createBranchName, isRemote: createIsRemote, open: openCreateDialog, close: closeCreateDialog } = useCreateWorktree();
 
   const hasLocalTrackingBranch = (remoteBranchName: string): boolean => {
     return localBranches.some((b) => b.name === remoteBranchName);
@@ -313,7 +312,7 @@ export function BranchSidebar({
                 onRenameWorktree={onRenameWorktree}
                 onOpenInFinder={onOpenInFinder}
                 onPruneWorktree={onPruneWorktree}
-                onAddWorktree={openCreateDialog}
+                onAddWorktree={() => onOpenCreateWorktree?.("", false)}
                 collapsed={collapsed["WORKTREES"]}
                 onToggleCollapsed={() => toggleSection("WORKTREES")}
               />
@@ -448,7 +447,7 @@ export function BranchSidebar({
               className="ctx-menu-item"
               role="menuitem"
               onClick={() => {
-                openCreateDialog(branchCtxMenu.refName, false);
+                onOpenCreateWorktree?.(branchCtxMenu.refName, false);
                 closeBranchCtxMenu();
               }}
             >
@@ -461,7 +460,7 @@ export function BranchSidebar({
               className="ctx-menu-item"
               role="menuitem"
               onClick={() => {
-                openCreateDialog(branchCtxMenu.refName, true);
+                onOpenCreateWorktree?.(branchCtxMenu.refName, true);
                 closeBranchCtxMenu();
               }}
             >
@@ -470,14 +469,6 @@ export function BranchSidebar({
           )}
         </div>
       )}
-      <CreateWorktreeDialog
-        isOpen={isCreateDialogOpen}
-        branchName={createBranchName}
-        isRemote={createIsRemote}
-        repoPath={repoPath}
-        onClose={closeCreateDialog}
-        onCreated={() => onWorktreeCreated?.()}
-      />
       {onStartResize && (
         <div
           className="panel-resize-handle panel-resize-handle-right"
