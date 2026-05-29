@@ -109,7 +109,7 @@ export class WorktreeService {
     }
   }
 
-  async createWorktree(repoPath: string, branch: string, targetPath: string): Promise<GitOperationResult> {
+  async createWorktree(repoPath: string, branch: string, targetPath: string, createNewBranch: boolean = false): Promise<GitOperationResult> {
     if (fs.existsSync(targetPath)) {
       return { ok: false, code: 1, stdout: "", stderr: "Path already exists", message: "Path already exists" };
     }
@@ -123,7 +123,11 @@ export class WorktreeService {
       }
     }
 
-    const result = await runGit(repoPath, ["worktree", "add", targetPath, branch]);
+    const args = createNewBranch 
+      ? ["worktree", "add", targetPath, "-b", branch]
+      : ["worktree", "add", targetPath, branch];
+    
+    const result = await runGit(repoPath, args);
     return result.code === 0 ? ok(result) : fail(result, "Failed to create worktree");
   }
 

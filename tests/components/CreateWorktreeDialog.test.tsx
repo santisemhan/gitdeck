@@ -80,7 +80,7 @@ describe("CreateWorktreeDialog", () => {
     setup({ onCreated, onClose });
     fireEvent.click(screen.getByText("Create"));
     await waitFor(() => {
-      expect(gitClient.createWorktree).toHaveBeenCalledWith("/Users/test/repos/my-app", "feature-branch", "/Users/test/repos/my-app/.worktrees/feature-branch");
+      expect(gitClient.createWorktree).toHaveBeenCalledWith("/Users/test/repos/my-app", "feature-branch", "/Users/test/repos/my-app/.worktrees/feature-branch", false);
     });
     expect(onCreated).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();

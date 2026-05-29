@@ -91,7 +91,8 @@ export function CreateWorktreeDialog({
 
     try {
       const branchToUse = branchName || worktreeName.trim();
-      const result = await gitClient.createWorktree(repoPath, branchToUse, targetPath);
+      const shouldCreateNewBranch = !branchName || createBranch;
+      const result = await gitClient.createWorktree(repoPath, branchToUse, targetPath, shouldCreateNewBranch);
       if (result.ok) {
         toast.success(`Worktree created at .worktrees/${worktreeName.trim()}`);
         onCreated();

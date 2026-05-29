@@ -163,8 +163,8 @@ export const gitClient = {
   listWorktrees(repoPath: string): Promise<WorktreeInfo[]> {
     return api().worktree.list(repoPath);
   },
-  createWorktree(repoPath: string, branch: string, targetPath: string): Promise<GitOperationResult> {
-    return api().worktree.create(repoPath, branch, targetPath);
+  createWorktree(repoPath: string, branch: string, targetPath: string, createNewBranch?: boolean): Promise<GitOperationResult> {
+    return api().worktree.create(repoPath, branch, targetPath, createNewBranch);
   },
   deleteWorktree(repoPath: string, worktreePath: string): Promise<GitOperationResult> {
     return api().worktree.delete(repoPath, worktreePath);

@@ -64,7 +64,7 @@ contextBridge.exposeInMainWorld("gitdeck", {
 
   worktree: {
     list: (repoPath: string) => ipcRenderer.invoke(Channels.worktreeList, repoPath),
-    create: (repoPath: string, branch: string, targetPath: string) => ipcRenderer.invoke(Channels.worktreeCreate, repoPath, branch, targetPath),
+    create: (repoPath: string, branch: string, targetPath: string, createNewBranch?: boolean) => ipcRenderer.invoke(Channels.worktreeCreate, repoPath, branch, targetPath, createNewBranch),
     delete: (repoPath: string, worktreePath: string) => ipcRenderer.invoke(Channels.worktreeDelete, repoPath, worktreePath),
     move: (repoPath: string, oldPath: string, newPath: string) => ipcRenderer.invoke(Channels.worktreeMove, repoPath, oldPath, newPath),
     prune: (repoPath: string, worktreePath: string) => ipcRenderer.invoke(Channels.worktreePrune, repoPath, worktreePath),

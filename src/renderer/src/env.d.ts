@@ -67,7 +67,7 @@ declare global {
       onTerminalExit(listener: (event: TerminalExitEvent) => void): () => void;
       worktree: {
         list(repoPath: string): Promise<WorktreeInfo[]>;
-        create(repoPath: string, branch: string, targetPath: string): Promise<GitOperationResult>;
+        create(repoPath: string, branch: string, targetPath: string, createNewBranch?: boolean): Promise<GitOperationResult>;
         delete(repoPath: string, worktreePath: string): Promise<GitOperationResult>;
         move(repoPath: string, oldPath: string, newPath: string): Promise<GitOperationResult>;
         prune(repoPath: string, worktreePath: string): Promise<GitOperationResult>;
