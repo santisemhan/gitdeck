@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useRenameWorktree } from "../hooks/useRenameWorktree";
+import { RenameWorktreeDialog } from "./RenameWorktreeDialog";
 import type { WorktreeInfo } from "../../../shared/types";
 import {
   IconBranch,
@@ -45,6 +47,11 @@ export function WorktreeSection({
   collapsed = false,
   onToggleCollapsed,
 }: WorktreeSectionProps) {
+  const renameHook = useRenameWorktree();
+
+  const handleRename = (wt: WorktreeInfo) => {
+    renameHook.open(wt);
+  };
   const [ctxMenu, setCtxMenu] = useState<WorktreeCtxMenuState | null>(null);
 
   const handleContextMenu = (e: React.MouseEvent, worktree: WorktreeInfo) => {
