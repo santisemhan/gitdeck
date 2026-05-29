@@ -35,44 +35,39 @@ describe("CreateWorktreeDialog", () => {
     expect(screen.getByText("Create worktree from feature-branch")).toBeInTheDocument();
   });
 
-  it("shows default target path", () => {
+  it("shows worktree name input with branch name", () => {
     setup();
-    const targetInput = screen.getByPlaceholderText("/path/to/worktree");
-    expect(targetInput).toHaveValue("/Users/test/repos/my-app/.worktrees/feature-branch");
+    const nameInput = screen.getByPlaceholderText("worktree-name");
+    expect(nameInput).toHaveValue("feature-branch");
   });
 
-  it("validates empty target path", async () => {
+  it("shows preview path when typing", () => {
+    setup();
+    const nameInput = screen.getByPlaceholderText("worktree-name");
+    fireEvent.change(nameInput, { target: { value: "my-feature" } });
+    expect(screen.getByText("→ .worktrees/my-feature")).toBeInTheDocument();
+  });
+
+  it("validates empty worktree name", async () => {
     const onCreated = vi.fn();
     setup({ onCreated });
-    const targetInput = screen.getByPlaceholderText("/path/to/worktree");
-    fireEvent.change(targetInput, { target: { value: "" } });
+    const nameInput = screen.getByPlaceholderText("worktree-name");
+    fireEvent.change(nameInput, { target: { value: "" } });
     fireEvent.click(screen.getByText("Create"));
     await waitFor(() => {
-      expect(screen.getByText("Target path is required")).toBeInTheDocument();
+      expect(screen.getByText("Worktree name is required")).toBeInTheDocument();
     });
     expect(onCreated).not.toHaveBeenCalled();
   });
 
-  it("validates target path inside repository", async () => {
+  it("validates invalid characters in name", async () => {
     const onCreated = vi.fn();
     setup({ onCreated });
-    const targetInput = screen.getByPlaceholderText("/path/to/worktree");
-    fireEvent.change(targetInput, { target: { value: "/Users/test/repos/my-app/src" } });
+    const nameInput = screen.getByPlaceholderText("worktree-name");
+    fireEvent.change(nameInput, { target: { value: "my feature" } });
     fireEvent.click(screen.getByText("Create"));
     await waitFor(() => {
-      expect(screen.getByText("Cannot create worktree inside repository directory (use .worktrees/ subdirectory)")).toBeInTheDocument();
-    });
-    expect(onCreated).not.toHaveBeenCalled();
-  });
-
-  it("validates path traversal", async () => {
-    const onCreated = vi.fn();
-    setup({ onCreated });
-    const targetInput = screen.getByPlaceholderText("/path/to/worktree");
-    fireEvent.change(targetInput, { target: { value: "/Users/test/../etc/passwd" } });
-    fireEvent.click(screen.getByText("Create"));
-    await waitFor(() => {
-      expect(screen.getByText("Path contains invalid characters")).toBeInTheDocument();
+      expect(screen.getByText("Name can only contain letters, numbers, hyphens, underscores, and dots")).toBeInTheDocument();
     });
     expect(onCreated).not.toHaveBeenCalled();
   });
@@ -116,8 +111,8 @@ describe("CreateWorktreeDialog", () => {
     const onCreated = vi.fn();
     const onClose = vi.fn();
     setup({ onCreated, onClose });
-    const targetInput = screen.getByPlaceholderText("/path/to/worktree");
-    fireEvent.keyDown(targetInput, { key: "Enter" });
+    const nameInput = screen.getByPlaceholderText("worktree-name");
+    fireEvent.keyDown(nameInput, { key: "Enter" });
     await waitFor(() => {
       expect(gitClient.createWorktree).toHaveBeenCalled();
     });

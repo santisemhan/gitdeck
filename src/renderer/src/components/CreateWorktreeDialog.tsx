@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { gitClient } from "../services/gitClient";
 
@@ -19,51 +19,37 @@ export function CreateWorktreeDialog({
   onClose,
   onCreated,
 }: CreateWorktreeDialogProps) {
-  const [targetPath, setTargetPath] = useState("");
+  const [worktreeName, setWorktreeName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createBranch, setCreateBranch] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const getDefaultPath = useCallback((repo: string, branch: string): string => {
-    const normalizedRepo = repo.replace(/[\\/]+$/, "");
-    const branchName = branch || "my-feature";
-    return `${normalizedRepo}/.worktrees/${branchName}`;
-  }, []);
-
   useEffect(() => {
-    if (isOpen && repoPath) {
-      const defaultPath = getDefaultPath(repoPath, branchName);
-      setTargetPath(defaultPath);
+    if (isOpen) {
+      setWorktreeName(branchName || "");
       setError(null);
       setCreateBranch(false);
       setTimeout(() => {
         inputRef.current?.focus();
       }, 0);
     }
-  }, [isOpen, repoPath, branchName, getDefaultPath]);
+  }, [isOpen, branchName]);
 
-  const validatePath = (path: string): string | null => {
-    if (!path.trim()) {
-      return "Target path is required";
+  const getTargetPath = () => {
+    const name = worktreeName.trim();
+    if (!name) return "";
+    const normalizedRepo = repoPath.replace(/[\\/]+$/, "");
+    return `${normalizedRepo}/.worktrees/${name}`;
+  };
+
+  const validateName = (name: string): string | null => {
+    if (!name.trim()) {
+      return "Worktree name is required";
     }
 
-    const normalizedPath = path.replace(/[\\/]+$/, "").toLowerCase();
-    const normalizedRepo = repoPath.replace(/[\\/]+$/, "").toLowerCase();
-
-    if (normalizedPath === normalizedRepo) {
-      return "Cannot create worktree at repository root";
-    }
-
-    const isInsideWorktreesDir = normalizedPath.startsWith(normalizedRepo + "/.worktrees/") || normalizedPath.startsWith(normalizedRepo + "\\.worktrees\\");
-    const isInsideRepo = normalizedPath.startsWith(normalizedRepo + "/") || normalizedPath.startsWith(normalizedRepo + "\\");
-
-    if (isInsideRepo && !isInsideWorktreesDir) {
-      return "Cannot create worktree inside repository directory (use .worktrees/ subdirectory)";
-    }
-
-    if (path.includes("..") || path.includes("~")) {
-      return "Path contains invalid characters";
+    if (!/^[a-zA-Z0-9_\-.]+$/.test(name.trim())) {
+      return "Name can only contain letters, numbers, hyphens, underscores, and dots";
     }
 
     return null;
@@ -83,16 +69,18 @@ export function CreateWorktreeDialog({
   };
 
   const handleCreate = async () => {
-    const validationError = validatePath(targetPath);
+    const validationError = validateName(worktreeName);
     if (validationError) {
       setError(validationError);
       toast.error(validationError);
       return;
     }
 
+    const targetPath = getTargetPath();
+
     const pathExists = await checkPathExists(targetPath);
     if (pathExists) {
-      const errorMsg = "Target path already exists";
+      const errorMsg = "Worktree with this name already exists";
       setError(errorMsg);
       toast.error(errorMsg);
       return;
@@ -104,7 +92,7 @@ export function CreateWorktreeDialog({
     try {
       const result = await gitClient.createWorktree(repoPath, branchName, targetPath);
       if (result.ok) {
-        toast.success(`Worktree created at ${targetPath}`);
+        toast.success(`Worktree created at .worktrees/${worktreeName.trim()}`);
         onCreated();
         onClose();
       } else {
@@ -127,7 +115,7 @@ export function CreateWorktreeDialog({
   };
 
   const handleCancel = () => {
-    setTargetPath("");
+    setWorktreeName("");
     setError(null);
     setCreateBranch(false);
     onClose();
@@ -157,10 +145,15 @@ export function CreateWorktreeDialog({
       <input
         ref={inputRef}
         className="create-branch-input"
-        value={targetPath}
-        onChange={(e) => setTargetPath(e.target.value)}
-        placeholder="/path/to/worktree"
+        value={worktreeName}
+        onChange={(e) => setWorktreeName(e.target.value)}
+        placeholder="worktree-name"
       />
+      {worktreeName.trim() && (
+        <span className="create-branch-banner-text" style={{ color: "var(--text-3)" }}>
+          → .worktrees/{worktreeName.trim()}
+        </span>
+      )}
       {error && <span className="create-branch-banner-text" style={{ color: "#ff6b6b" }}>{error}</span>}
       <div className="create-branch-actions">
         <button className="create-branch-btn primary" type="submit" disabled={loading}>
