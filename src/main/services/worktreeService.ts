@@ -116,7 +116,11 @@ export class WorktreeService {
 
     const parentDir = path.dirname(targetPath);
     if (!fs.existsSync(parentDir)) {
-      return { ok: false, code: 1, stdout: "", stderr: "Parent directory does not exist", message: "Parent directory does not exist" };
+      try {
+        fs.mkdirSync(parentDir, { recursive: true });
+      } catch {
+        return { ok: false, code: 1, stdout: "", stderr: "Failed to create parent directory", message: "Failed to create parent directory" };
+      }
     }
 
     const result = await runGit(repoPath, ["worktree", "add", targetPath, branch]);
