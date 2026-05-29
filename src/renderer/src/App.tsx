@@ -711,6 +711,15 @@ function RepoView({
           </div>
         )}
 
+        <DeleteWorktreeDialog
+          isOpen={deleteWorktree.isOpen}
+          worktree={deleteWorktree.worktree}
+          loading={deleteWorktree.loading}
+          error={deleteWorktree.error}
+          onClose={deleteWorktree.close}
+          onConfirm={() => void deleteWorktree.delete()}
+        />
+
         {showCreateBranchBanner && (
           <form
             className="create-branch-banner"
@@ -861,14 +870,6 @@ function RepoView({
               collapsed={leftPanelCollapsed}
               onToggleCollapsed={toggleLeftPanel}
               onStartResize={leftPanel.startResize}
-            />
-            <DeleteWorktreeDialog
-              isOpen={deleteWorktree.isOpen}
-              worktree={deleteWorktree.worktree}
-              loading={deleteWorktree.loading}
-              error={deleteWorktree.error}
-              onClose={deleteWorktree.close}
-              onConfirm={() => void deleteWorktree.delete()}
             />
 
             <div className="center">
