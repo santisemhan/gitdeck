@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { WorktreeInfo } from "../../../shared/types";
 import { gitClient } from "../services/gitClient";
 
@@ -40,6 +40,32 @@ export function useWorktrees(repoPath: string | null): UseWorktrees {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!repoPath) return;
+
+    const queueRefresh = () => {
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      refreshTimer.current = setTimeout(() => {
+        refreshTimer.current = null;
+        void refresh();
+      }, 220);
+    };
+
+    const unlisten = gitClient.onRepositoryChanged((event) => {
+      if (event.repoPath === repoPath) queueRefresh();
+    });
+
+    return () => {
+      if (refreshTimer.current) {
+        clearTimeout(refreshTimer.current);
+        refreshTimer.current = null;
+      }
+      unlisten();
+    };
+  }, [repoPath, refresh]);
 
   return {
     worktrees,

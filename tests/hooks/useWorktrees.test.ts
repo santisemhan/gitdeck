@@ -7,6 +7,7 @@ import type { WorktreeInfo } from "../../src/shared/types";
 vi.mock("../../src/renderer/src/services/gitClient", () => ({
   gitClient: {
     listWorktrees: vi.fn(),
+    onRepositoryChanged: vi.fn(() => vi.fn()),
   },
 }));
 
