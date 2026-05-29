@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { Commit, CommitRef } from "../data/types";
 import { STORAGE_KEYS } from "../constants/storageKeys";
@@ -126,128 +126,11 @@ export function CommitGraph({
     return () => observer.disconnect();
   }, [onLoadMore, historyDone, loadingMore, commits.length]);
 
-<<<<<<< Updated upstream
   const { menu: branchCtxMenu, open: openBranchCtxMenu, close: closeBranchCtxMenu } = useContextMenu<BranchCtxMenu>();
   const { menu: stashCtxMenu, open: openStashCtxMenu, close: closeStashCtxMenu } = useContextMenu<StashCtxMenu>();
   const { menu: commitCtxMenu, open: openCommitCtxMenu, close: closeCommitCtxMenu } = useContextMenu<CommitCtxMenu>();
-=======
-  useEffect(() => {
-    setColumns((prev) => {
-      if (prev.graph >= requiredGraphWidth) return prev;
-      return { ...prev, graph: requiredGraphWidth };
-    });
-  }, [requiredGraphWidth]);
-
-  useEffect(() => {
-    writeStoredNumber(STORAGE_KEYS.commitGraphLabelsWidth, columns.labels);
-  }, [columns.labels]);
-
-  useEffect(() => {
-    writeStoredNumber(STORAGE_KEYS.commitGraphWidth, columns.graph);
-  }, [columns.graph]);
-
-  const byId = useMemo(() => {
-    const m: Record<string, Commit> = {};
-    commits.forEach((c) => {
-      m[c.id] = c;
-    });
-    return m;
-  }, [commits]);
-
-  const edges = useMemo(() => {
-    const result: {
-      fromLane: number;
-      toLane: number;
-      fromY: number;
-      toY: number;
-      color: string;
-      dashed: boolean;
-    }[] = [];
-    commits.forEach((c) => {
-      c.parents.forEach((pid, parentIdx) => {
-        const parent = byId[pid];
-        if (!parent) return;
-        const fromY = commitYById[c.id];
-        const toY = commitYById[parent.id];
-        if (!fromY || !toY) return;
-        const fromLane = c.lane;
-        const toLane = parent.lane;
-        const isMergeParent = c.parents.length > 1 && parentIdx > 0;
-        result.push({
-          fromLane,
-          toLane,
-          fromY,
-          toY,
-          color: laneColor(isMergeParent ? toLane : fromLane),
-          dashed: !!c.isStash,
-        });
-      });
-    });
-    return result;
-  }, [commits, byId, commitYById]);
-
-  const [branchCtxMenu, setBranchCtxMenu] = useState<BranchCtxMenu | null>(null);
-  const [stashCtxMenu,  setStashCtxMenu]  = useState<StashCtxMenu  | null>(null);
-  const [commitCtxMenu, setCommitCtxMenu] = useState<CommitCtxMenu | null>(null);
-  const [mergeMenu,     setMergeMenu]     = useState<MergeMenu     | null>(null);
-  const [draggingRef,   setDraggingRef]   = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!branchCtxMenu) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      setBranchCtxMenu(null);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [branchCtxMenu]);
-
-  useEffect(() => {
-    if (!stashCtxMenu) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      setStashCtxMenu(null);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [stashCtxMenu]);
-
-  useEffect(() => {
-    if (!commitCtxMenu) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      setCommitCtxMenu(null);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [commitCtxMenu]);
->>>>>>> Stashed changes
-
-  useEffect(() => {
-    if (!mergeMenu) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
-      setMergeMenu(null);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [mergeMenu]);
+  const { menu: mergeMenu, open: openMergeMenu, close: closeMergeMenu } = useContextMenu<MergeMenu>();
+  const [draggingRef, setDraggingRef] = useState<string | null>(null);
 
   const handleCommitContextMenu = useCallback(
     (hash: string, title: string, x: number, y: number) => {
@@ -266,8 +149,8 @@ export function CommitGraph({
 
   const handleRefDrop = useCallback((source: string, target: string, x: number, y: number) => {
     if (source === target) return;
-    setMergeMenu({ x, y, source, target });
-  }, []);
+    openMergeMenu({ x, y, source, target });
+  }, [openMergeMenu]);
 
   const handleRefContextMenu = useCallback(
     (refName: string, isCurrent: boolean, isRemote: boolean, x: number, y: number) => {
@@ -612,7 +495,7 @@ export function CommitGraph({
             role="menuitem"
             onClick={() => {
               onMergeBranch?.(mergeMenu.source, mergeMenu.target);
-              setMergeMenu(null);
+              closeMergeMenu();
             }}
           >
             Merge {mergeMenu.source} into {mergeMenu.target}
