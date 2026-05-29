@@ -19,7 +19,7 @@ import { readStoredBoolean, writeStoredBoolean } from "./utils/storage";
 import type { CSSProperties } from "react";
 
 const LEFT_PANEL_MIN_WIDTH = 180;
-const RIGHT_PANEL_MIN_WIDTH = 300;
+const RIGHT_PANEL_MIN_WIDTH = 390;
 const LEFT_PANEL_MAX_FRACTION = 0.7;
 const RIGHT_PANEL_MAX_FRACTION = 0.35;
 const CENTER_MIN_WIDTH = 200;
