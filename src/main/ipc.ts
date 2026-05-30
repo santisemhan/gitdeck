@@ -6,6 +6,7 @@ import { EditorService } from "./services/editorService";
 import { GitService } from "./services/gitService";
 import { RecentRepoStore } from "./services/recentRepoStore";
 import { TerminalService } from "./services/terminalService";
+import { WorktreeService } from "./services/worktreeService";
 
 interface RepoWatchEntry {
   repoPath: string;
@@ -17,6 +18,7 @@ export function registerIpcHandlers() {
   const editorService = new EditorService();
   const store = new RecentRepoStore();
   const terminalService = new TerminalService();
+  const worktreeService = new WorktreeService();
   const watchesByWindow = new Map<number, RepoWatchEntry>();
 
   const stopWatching = (windowId: number) => {
@@ -132,4 +134,12 @@ export function registerIpcHandlers() {
   ipcMain.handle(Channels.terminalInput, (_e, sessionId: string, data: string) => terminalService.input(sessionId, data));
   ipcMain.handle(Channels.terminalResize, (_e, sessionId: string, cols: number, rows: number) => terminalService.resize(sessionId, cols, rows));
   ipcMain.handle(Channels.terminalClose, (_e, sessionId: string) => terminalService.close(sessionId));
+
+  ipcMain.handle(Channels.worktreeList, (_e, repoPath: string) => worktreeService.listWorktrees(repoPath));
+  ipcMain.handle(Channels.worktreeCreate, (_e, repoPath: string, branch: string, targetPath: string, createNewBranch?: boolean) => worktreeService.createWorktree(repoPath, branch, targetPath, createNewBranch));
+  ipcMain.handle(Channels.worktreeDelete, (_e, repoPath: string, worktreePath: string) => worktreeService.deleteWorktree(repoPath, worktreePath));
+  ipcMain.handle(Channels.worktreeMove, (_e, repoPath: string, oldPath: string, newPath: string) => worktreeService.moveWorktree(repoPath, oldPath, newPath));
+  ipcMain.handle(Channels.worktreePrune, (_e, repoPath: string, worktreePath: string) => worktreeService.pruneWorktree(repoPath, worktreePath));
+  ipcMain.handle(Channels.worktreeOpenInFinder, (_e, worktreePath: string) => worktreeService.openInFinder(worktreePath));
+  ipcMain.handle(Channels.worktreeSwitch, (_e, worktreePath: string) => worktreeService.switchToWorktree(worktreePath));
 }

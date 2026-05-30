@@ -163,3 +163,11 @@ export interface DiffHunk {
   header: string;
   lines: DiffLine[];
 }
+
+export interface WorktreeInfo {
+  path: string;
+  branch: string;
+  isMain: boolean;
+  isOrphaned: boolean;
+  hasChanges: boolean;
+}

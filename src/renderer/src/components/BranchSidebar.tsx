@@ -8,6 +8,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import type { LocalBranch, RemoteBranch } from "../data/types";
+import type { WorktreeInfo } from "../../../shared/types";
 import { useContextMenu } from "../hooks/useContextMenu";
 import {
   IconArrowDown,
@@ -21,16 +22,28 @@ import {
   IconFolder,
   IconMonitor,
 } from "./icons";
+import { WorktreeSection } from "./WorktreeSection";
+import { CreateWorktreeDialog } from "./CreateWorktreeDialog";
 
 interface BranchSidebarProps {
   localBranches: LocalBranch[];
   remoteBranches: RemoteBranch[];
+  worktrees: WorktreeInfo[];
+  repoPath: string;
   currentBranchId: string;
   onSelectBranch: (branch: LocalBranch | RemoteBranch) => void;
   onCheckoutBranch: (branch: LocalBranch | RemoteBranch) => void;
   onCreateBranchFrom?: (refName: string) => void;
   onDeleteBranch?: (refName: string) => void;
   onRequestRenameBranch?: (name: string) => void;
+  onWorktreeCreated?: () => void;
+  onSelectWorktree?: (worktree: WorktreeInfo) => void;
+  onSwitchWorktree?: (worktree: WorktreeInfo) => void;
+  onDeleteWorktree?: (worktree: WorktreeInfo) => void;
+  onRenameWorktree?: (worktree: WorktreeInfo) => void;
+  onOpenInFinder?: (worktree: WorktreeInfo) => void;
+  onPruneWorktree?: (worktree: WorktreeInfo) => void;
+  onOpenCreateWorktree?: (branchName: string, isRemote: boolean) => void;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
   onStartResize?: (event: ReactMouseEvent) => void;
@@ -41,12 +54,22 @@ type SectionKey = "LOCAL" | "REMOTE" | "WORKTREES" | "CLOUD PATCHES" | "PULL REQ
 export function BranchSidebar({
   localBranches,
   remoteBranches,
+  worktrees,
+  repoPath,
   currentBranchId,
   onSelectBranch,
   onCheckoutBranch,
   onCreateBranchFrom,
   onDeleteBranch,
   onRequestRenameBranch,
+  onWorktreeCreated,
+  onSelectWorktree,
+  onSwitchWorktree,
+  onDeleteWorktree,
+  onRenameWorktree,
+  onOpenInFinder,
+  onPruneWorktree,
+  onOpenCreateWorktree,
   collapsed: panelCollapsed = false,
   onToggleCollapsed,
   onStartResize,
@@ -86,6 +109,10 @@ export function BranchSidebar({
   };
   const { menu: branchCtxMenu, open: openBranchCtxMenu, close: closeBranchCtxMenu } =
     useContextMenu<BranchCtxMenuState>();
+
+  const hasLocalTrackingBranch = (remoteBranchName: string): boolean => {
+    return localBranches.some((b) => b.name === remoteBranchName);
+  };
 
   const isMac = useMemo(() => navigator.platform.toUpperCase().includes("MAC"), []);
 
@@ -275,6 +302,20 @@ export function BranchSidebar({
                 {grouped._flat.filter(filterFn).map((b) => renderBranchRow(b))}
                 {totalLocal === 0 && <div className="empty-row">No branches</div>}
               </div>
+              <WorktreeSection
+                worktrees={worktrees}
+                loading={false}
+                error={null}
+                onSelectWorktree={onSelectWorktree || (() => {})}
+                onSwitchWorktree={onSwitchWorktree || (() => {})}
+                onDeleteWorktree={onDeleteWorktree}
+                onRenameWorktree={onRenameWorktree}
+                onOpenInFinder={onOpenInFinder}
+                onPruneWorktree={onPruneWorktree}
+                onAddWorktree={() => onOpenCreateWorktree?.("", false)}
+                collapsed={collapsed["WORKTREES"]}
+                onToggleCollapsed={() => toggleSection("WORKTREES")}
+              />
             </div>
           )}
         </div>
@@ -399,6 +440,32 @@ export function BranchSidebar({
                 Delete branch
               </button>
             </>
+          )}
+          {!branchCtxMenu.isRemote && (
+            <button
+              type="button"
+              className="ctx-menu-item"
+              role="menuitem"
+              onClick={() => {
+                onOpenCreateWorktree?.(branchCtxMenu.refName, false);
+                closeBranchCtxMenu();
+              }}
+            >
+              Create Worktree
+            </button>
+          )}
+          {branchCtxMenu.isRemote && hasLocalTrackingBranch(branchCtxMenu.refName) && (
+            <button
+              type="button"
+              className="ctx-menu-item"
+              role="menuitem"
+              onClick={() => {
+                onOpenCreateWorktree?.(branchCtxMenu.refName, true);
+                closeBranchCtxMenu();
+              }}
+            >
+              Create Worktree
+            </button>
           )}
         </div>
       )}

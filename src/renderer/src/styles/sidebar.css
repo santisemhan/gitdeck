@@ -123,6 +123,24 @@
   letter-spacing: 0;
 }
 .section-header .count.zero { color: var(--text-disabled); background: transparent; }
+.section-header .section-add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-3);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 4px;
+}
+.section-header .section-add-btn:hover {
+  background: var(--bg-2);
+  color: var(--text-1);
+}
 
 .branch-group {
   padding-left: 8px;

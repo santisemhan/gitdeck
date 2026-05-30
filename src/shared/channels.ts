@@ -47,5 +47,13 @@ export const Channels = {
   terminalResize: "terminal:resize",
   terminalClose: "terminal:close",
   terminalData: "terminal:data",
-  terminalExit: "terminal:exit"
+  terminalExit: "terminal:exit",
+
+  worktreeList: "worktree:list",
+  worktreeCreate: "worktree:create",
+  worktreeDelete: "worktree:delete",
+  worktreeMove: "worktree:move",
+  worktreePrune: "worktree:prune",
+  worktreeOpenInFinder: "worktree:openInFinder",
+  worktreeSwitch: "worktree:switch"
 } as const;

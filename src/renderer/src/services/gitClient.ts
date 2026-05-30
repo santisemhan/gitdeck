@@ -13,7 +13,8 @@ import type {
   RepoChangeEvent,
   GitStatus,
   Repository,
-  WatchOperationResult
+  WatchOperationResult,
+  WorktreeInfo
 } from "../../../shared/types";
 
 const api = () => window.gitdeck;
@@ -161,6 +162,27 @@ export const gitClient = {
   },
   onTerminalExit(listener: (event: TerminalExitEvent) => void): () => void {
     return api().onTerminalExit(listener);
+  },
+  listWorktrees(repoPath: string): Promise<WorktreeInfo[]> {
+    return api().worktree.list(repoPath);
+  },
+  createWorktree(repoPath: string, branch: string, targetPath: string, createNewBranch?: boolean): Promise<GitOperationResult> {
+    return api().worktree.create(repoPath, branch, targetPath, createNewBranch);
+  },
+  deleteWorktree(repoPath: string, worktreePath: string): Promise<GitOperationResult> {
+    return api().worktree.delete(repoPath, worktreePath);
+  },
+  moveWorktree(repoPath: string, oldPath: string, newPath: string): Promise<GitOperationResult> {
+    return api().worktree.move(repoPath, oldPath, newPath);
+  },
+  pruneWorktree(repoPath: string, worktreePath: string): Promise<GitOperationResult> {
+    return api().worktree.prune(repoPath, worktreePath);
+  },
+  openInFinder(worktreePath: string): Promise<GitOperationResult> {
+    return api().worktree.openInFinder(worktreePath);
+  },
+  switchToWorktree(worktreePath: string): Promise<GitOperationResult> {
+    return api().worktree.switch(worktreePath);
   }
 };
 

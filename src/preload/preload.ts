@@ -61,5 +61,15 @@ contextBridge.exposeInMainWorld("gitdeck", {
     const handler = (_event: unknown, payload: { sessionId: string; exitCode: number }) => listener(payload);
     ipcRenderer.on(Channels.terminalExit, handler);
     return () => ipcRenderer.off(Channels.terminalExit, handler);
+  },
+
+  worktree: {
+    list: (repoPath: string) => ipcRenderer.invoke(Channels.worktreeList, repoPath),
+    create: (repoPath: string, branch: string, targetPath: string, createNewBranch?: boolean) => ipcRenderer.invoke(Channels.worktreeCreate, repoPath, branch, targetPath, createNewBranch),
+    delete: (repoPath: string, worktreePath: string) => ipcRenderer.invoke(Channels.worktreeDelete, repoPath, worktreePath),
+    move: (repoPath: string, oldPath: string, newPath: string) => ipcRenderer.invoke(Channels.worktreeMove, repoPath, oldPath, newPath),
+    prune: (repoPath: string, worktreePath: string) => ipcRenderer.invoke(Channels.worktreePrune, repoPath, worktreePath),
+    openInFinder: (worktreePath: string) => ipcRenderer.invoke(Channels.worktreeOpenInFinder, worktreePath),
+    switch: (worktreePath: string) => ipcRenderer.invoke(Channels.worktreeSwitch, worktreePath)
   }
 });
