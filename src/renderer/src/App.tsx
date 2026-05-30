@@ -63,8 +63,17 @@ export function App() {
       {!repo ? (
         <RepositoryLauncher
           recents={repoState.recents}
+          openRepos={repos}
+          activePath={activePath}
           onOpenPicker={repoState.openPicker}
           onOpenRepo={repoState.openByPath}
+          onSwitchRepo={repoState.setActiveByPath}
+          onCloseRepo={repoState.closeByPath}
+          onCloseHome={repoState.closeHome}
+          onReorderRepo={repoState.reorderByPath}
+          onClone={repoState.cloneRepo}
+          onCreate={repoState.initRepo}
+          onChooseDirectory={repoState.chooseDirectory}
         />
       ) : (
         <RepoView
@@ -73,11 +82,10 @@ export function App() {
           repoName={repo.name}
           openRepos={repos}
           activePath={activePath}
-          onOpenPicker={repoState.openPicker}
           onSwitchRepo={repoState.setActiveByPath}
           onCloseRepo={repoState.closeByPath}
           onReorderRepo={repoState.reorderByPath}
-          onCloseAll={repoState.close}
+          onGoHome={repoState.close}
         />
       )}
     </>
@@ -89,11 +97,10 @@ interface RepoViewProps {
   repoName: string;
   openRepos: Array<{ path: string; name: string }>;
   activePath: string | null;
-  onOpenPicker: () => Promise<void>;
   onSwitchRepo: (path: string) => void;
   onCloseRepo: (path: string) => void;
-  onReorderRepo: (sourcePath: string, targetPath: string) => void;
-  onCloseAll: () => void;
+  onReorderRepo: (sourcePath: string, targetPath: string, placeAfter?: boolean) => void;
+  onGoHome: () => void;
 }
 
 function RepoView({
@@ -101,11 +108,10 @@ function RepoView({
   repoName,
   openRepos,
   activePath,
-  onOpenPicker,
   onSwitchRepo,
   onCloseRepo,
   onReorderRepo,
-  onCloseAll
+  onGoHome
 }: RepoViewProps) {
   const data = useRepoData(repoPath);
   const { status, history, branches, stashes } = data.data;
@@ -690,7 +696,8 @@ function RepoView({
       <RepoTabBar
         openRepos={openRepos}
         activePath={activePath}
-        onCloseAll={onCloseAll}
+        onGoHome={onGoHome}
+        onCloseHome={() => {}}
         onSwitchRepo={onSwitchRepo}
         onCloseRepo={onCloseRepo}
         onReorderRepo={onReorderRepo}

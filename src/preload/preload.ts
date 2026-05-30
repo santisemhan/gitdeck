@@ -3,6 +3,9 @@ import { Channels } from "../shared/channels";
 
 contextBridge.exposeInMainWorld("gitdeck", {
   selectRepository: () => ipcRenderer.invoke(Channels.selectRepository),
+  selectDirectory: () => ipcRenderer.invoke(Channels.selectDirectory),
+  cloneRepository: (url: string, parentDir: string) => ipcRenderer.invoke(Channels.cloneRepository, url, parentDir),
+  initRepository: (targetPath: string) => ipcRenderer.invoke(Channels.initRepository, targetPath),
   getRecentRepositories: () => ipcRenderer.invoke(Channels.getRecentRepositories),
 
   getStatus: (repoPath: string) => ipcRenderer.invoke(Channels.getStatus, repoPath),

@@ -23,6 +23,7 @@ import {
   Gear,
   GitBranch,
   GitCommit,
+  House,
   ClockCounterClockwise,
   Keyboard,
   ListBullets,
@@ -63,6 +64,7 @@ export const IconArchiveDown = make(ArrowLineDown);
 export const IconArchiveUp = make(ArrowLineUp);
 export const IconArchive = make(Archive);
 export const IconBranch = make(GitBranch);
+export const IconHome = make(House);
 export const IconTerminal = make(Terminal);
 export const IconTag = make(Tag);
 export const IconSearch = make(MagnifyingGlass);

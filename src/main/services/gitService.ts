@@ -14,6 +14,7 @@ import {
 import { parseHistory, historyFormat } from "../parsers/historyParser";
 import { parseStatusPorcelainV2 } from "../parsers/statusParser";
 type CommandResult = { code: number; stdout: string; stderr: string };
+export type OpenRepoResult = { ok: boolean; path?: string; name?: string; message?: string };
 
 const BIG_DIFF_LIMIT = 500_000;
 
@@ -129,6 +130,64 @@ export class GitService {
     const isBinary = buf.slice(0, 8000).includes(0);
     if (isBinary) return { text: "", isBinary: true };
     return { text: buf.toString("utf-8"), isBinary: false };
+  }
+
+  async initRepository(targetPath: string): Promise<OpenRepoResult> {
+    try {
+      if (!fs.existsSync(targetPath)) {
+        fs.mkdirSync(targetPath, { recursive: true });
+      }
+      const stat = fs.statSync(targetPath);
+      if (!stat.isDirectory()) {
+        return { ok: false, message: "Selected path is not a directory." };
+      }
+      const existing = await runGit(targetPath, ["rev-parse", "--is-inside-work-tree"]);
+      if (existing.code === 0 && existing.stdout.trim() === "true") {
+        return { ok: false, message: "This folder is already a Git repository." };
+      }
+      const result = await runGit(targetPath, ["init"]);
+      if (result.code !== 0) {
+        return { ok: false, message: result.stderr || "Failed to initialize repository." };
+      }
+      return { ok: true, path: targetPath, name: path.basename(targetPath) };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to initialize repository.";
+      return { ok: false, message };
+    }
+  }
+
+  async cloneRepository(url: string, parentDir: string): Promise<OpenRepoResult> {
+    const trimmedUrl = url.trim();
+    if (!trimmedUrl) {
+      return { ok: false, message: "Repository URL is required." };
+    }
+    const folderName = this.deriveCloneFolderName(trimmedUrl);
+    if (!folderName) {
+      return { ok: false, message: "Could not determine a folder name from the URL." };
+    }
+    try {
+      if (!fs.existsSync(parentDir)) {
+        return { ok: false, message: "Destination folder does not exist." };
+      }
+      const destination = path.join(parentDir, folderName);
+      if (fs.existsSync(destination)) {
+        return { ok: false, message: `A folder named "${folderName}" already exists here.` };
+      }
+      const result = await runGit(parentDir, ["clone", trimmedUrl, folderName]);
+      if (result.code !== 0) {
+        return { ok: false, message: this.mapNetworkError(result.stderr) };
+      }
+      return { ok: true, path: destination, name: folderName };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to clone repository.";
+      return { ok: false, message };
+    }
+  }
+
+  private deriveCloneFolderName(url: string): string {
+    let cleaned = url.trim().replace(/\/+$/, "");
+    const lastSegment = cleaned.split(/[/\\]/).pop() ?? "";
+    return lastSegment.replace(/\.git$/i, "").trim();
   }
 
   async validateRepository(repoPath: string): Promise<GitOperationResult> {

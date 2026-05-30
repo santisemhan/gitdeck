@@ -21,6 +21,9 @@ declare global {
   interface Window {
     gitdeck: {
       selectRepository(): Promise<any>;
+      selectDirectory(): Promise<{ ok: boolean; path?: string; message?: string }>;
+      cloneRepository(url: string, parentDir: string): Promise<{ ok: boolean; path?: string; name?: string; message?: string }>;
+      initRepository(targetPath: string): Promise<{ ok: boolean; path?: string; name?: string; message?: string }>;
       getRecentRepositories(): Promise<Repository[]>;
       getStatus(repoPath: string): Promise<GitStatus>;
       getDiff(repoPath: string, filePath: string, staged: boolean): Promise<GitDiff>;
