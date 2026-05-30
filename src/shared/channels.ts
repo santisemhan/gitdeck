@@ -1,5 +1,8 @@
 export const Channels = {
   selectRepository: "repo:select",
+  selectDirectory: "repo:selectDirectory",
+  cloneRepository: "repo:clone",
+  initRepository: "repo:init",
   getRecentRepositories: "repo:recent",
 
   getStatus: "git:status",

@@ -48,9 +48,13 @@ export interface UseActiveRepo {
   ready: boolean;
   openPicker: () => Promise<void>;
   openByPath: (repo: Repository) => Promise<void>;
+  chooseDirectory: () => Promise<string | null>;
+  cloneRepo: (url: string, parentDir: string) => Promise<boolean>;
+  initRepo: (targetPath: string) => Promise<boolean>;
   setActiveByPath: (path: string) => void;
   closeByPath: (path: string) => void;
-  reorderByPath: (sourcePath: string, targetPath: string) => void;
+  closeHome: () => void;
+  reorderByPath: (sourcePath: string, targetPath: string, placeAfter?: boolean) => void;
   refreshRecents: () => Promise<void>;
   close: () => void;
 }
@@ -159,10 +163,50 @@ export function useActiveRepo(): UseActiveRepo {
     [adopt, refreshRecents]
   );
 
+  const chooseDirectory = useCallback(async () => {
+    const result = await gitClient.selectDirectory();
+    if (!result?.ok || !result.path) {
+      if (result?.message && result.message !== "No folder selected") toast.error(result.message);
+      return null;
+    }
+    return result.path;
+  }, []);
+
+  const cloneRepo = useCallback(
+    async (url: string, parentDir: string) => {
+      const result = await gitClient.cloneRepository(url, parentDir);
+      if (!result.ok || !result.path || !result.name) {
+        toast.error(result.message || "Could not clone repository");
+        return false;
+      }
+      adopt(result.path, result.name);
+      await refreshRecents();
+      toast.success(`Cloned ${result.name}`);
+      return true;
+    },
+    [adopt, refreshRecents]
+  );
+
+  const initRepo = useCallback(
+    async (targetPath: string) => {
+      const result = await gitClient.initRepository(targetPath);
+      if (!result.ok || !result.path || !result.name) {
+        toast.error(result.message || "Could not create repository");
+        return false;
+      }
+      adopt(result.path, result.name);
+      await refreshRecents();
+      toast.success(`Created ${result.name}`);
+      return true;
+    },
+    [adopt, refreshRecents]
+  );
+
+  // Go back to the launcher/home WITHOUT discarding open tabs. The repos array
+  // (and its localStorage mirror) is preserved so the user can return to any tab.
   const close = useCallback(() => {
     setActivePath(null);
     localStorage.removeItem(STORAGE_KEYS.lastRepoPath);
-    localStorage.removeItem(STORAGE_KEYS.openRepos);
   }, []);
 
   const setActiveByPath = useCallback((path: string) => {
@@ -195,15 +239,27 @@ export function useActiveRepo(): UseActiveRepo {
     });
   }, []);
 
-  const reorderByPath = useCallback((sourcePath: string, targetPath: string) => {
+  // Close the "New tab" (Home) screen: jump to the most recent open repo if any
+  // exist. If Home is the only tab there is nowhere to go, so it's a no-op.
+  const closeHome = useCallback(() => {
+    setRepos((current) => {
+      if (current.length === 0) return current;
+      const last = localStorage.getItem(STORAGE_KEYS.lastRepoPath);
+      const target = current.find((repo) => repo.path === last) ?? current[current.length - 1]!;
+      setActivePath(target.path);
+      localStorage.setItem(STORAGE_KEYS.lastRepoPath, target.path);
+      return current;
+    });
+  }, []);
+
+  const reorderByPath = useCallback((sourcePath: string, targetPath: string, placeAfter = false) => {
     if (sourcePath === targetPath) {
       return;
     }
 
     setRepos((current) => {
       const sourceIndex = current.findIndex((repo) => repo.path === sourcePath);
-      const targetIndex = current.findIndex((repo) => repo.path === targetPath);
-      if (sourceIndex < 0 || targetIndex < 0) {
+      if (sourceIndex < 0 || current.findIndex((repo) => repo.path === targetPath) < 0) {
         return current;
       }
 
@@ -212,7 +268,11 @@ export function useActiveRepo(): UseActiveRepo {
       if (!moved) {
         return current;
       }
-      next.splice(targetIndex, 0, moved);
+      // Recompute the target index AFTER removing the source so insertion is
+      // correct regardless of drag direction.
+      let insertIndex = next.findIndex((repo) => repo.path === targetPath);
+      if (placeAfter) insertIndex += 1;
+      next.splice(insertIndex, 0, moved);
       return next;
     });
   }, []);
@@ -227,8 +287,12 @@ export function useActiveRepo(): UseActiveRepo {
     ready,
     openPicker,
     openByPath,
+    chooseDirectory,
+    cloneRepo,
+    initRepo,
     setActiveByPath,
     closeByPath,
+    closeHome,
     reorderByPath,
     refreshRecents,
     close

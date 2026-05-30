@@ -25,9 +25,38 @@ export interface OpenRepoResult {
   message?: string;
 }
 
+export interface SelectDirectoryResult {
+  ok: boolean;
+  path?: string;
+  message?: string;
+}
+
+const BRIDGE_OUTDATED = "This action is not available yet. Restart the app to reload preload/main changes.";
+
 export const gitClient = {
   selectRepository(): Promise<OpenRepoResult> {
     return api().selectRepository();
+  },
+  selectDirectory(): Promise<SelectDirectoryResult> {
+    const bridge = api() as Window["gitdeck"] & { selectDirectory?: () => Promise<SelectDirectoryResult> };
+    if (typeof bridge.selectDirectory !== "function") {
+      return Promise.resolve({ ok: false, message: BRIDGE_OUTDATED });
+    }
+    return bridge.selectDirectory();
+  },
+  cloneRepository(url: string, parentDir: string): Promise<OpenRepoResult> {
+    const bridge = api() as Window["gitdeck"] & { cloneRepository?: (url: string, parentDir: string) => Promise<OpenRepoResult> };
+    if (typeof bridge.cloneRepository !== "function") {
+      return Promise.resolve({ ok: false, message: BRIDGE_OUTDATED });
+    }
+    return bridge.cloneRepository(url, parentDir);
+  },
+  initRepository(targetPath: string): Promise<OpenRepoResult> {
+    const bridge = api() as Window["gitdeck"] & { initRepository?: (targetPath: string) => Promise<OpenRepoResult> };
+    if (typeof bridge.initRepository !== "function") {
+      return Promise.resolve({ ok: false, message: BRIDGE_OUTDATED });
+    }
+    return bridge.initRepository(targetPath);
   },
   recentRepositories(): Promise<Repository[]> {
     return api().getRecentRepositories();

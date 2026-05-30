@@ -58,6 +58,24 @@ export function registerIpcHandlers() {
     return { ok: true, path: repoPath, name: path.basename(repoPath) };
   });
 
+  ipcMain.handle(Channels.selectDirectory, async () => {
+    const picked = await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
+    if (picked.canceled || picked.filePaths.length === 0) return { ok: false, message: "No folder selected" };
+    return { ok: true, path: picked.filePaths[0] };
+  });
+
+  ipcMain.handle(Channels.cloneRepository, async (_e, url: string, parentDir: string) => {
+    const result = await gitService.cloneRepository(url, parentDir);
+    if (result.ok && result.path) store.add(result.path);
+    return result;
+  });
+
+  ipcMain.handle(Channels.initRepository, async (_e, targetPath: string) => {
+    const result = await gitService.initRepository(targetPath);
+    if (result.ok && result.path) store.add(result.path);
+    return result;
+  });
+
   ipcMain.handle(Channels.getRecentRepositories, () => store.getAll());
 
   ipcMain.handle(Channels.watchRepository, (event, repoPath: string) => {
