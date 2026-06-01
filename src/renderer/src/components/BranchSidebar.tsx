@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type MouseEvent as ReactMouseEvent,
+type MouseEvent as ReactMouseEvent,
 } from "react";
 import type { LocalBranch, RemoteBranch } from "../data/types";
 import type { BranchCtxMenuState, SectionKey } from "../data/types";
@@ -37,6 +37,7 @@ interface BranchSidebarProps {
   onCreateBranchFrom?: (refName: string) => void;
   onCreateTagFrom?: (refName: string) => void;
   onDeleteBranch?: (refName: string) => void;
+  onDeleteBranchFolder?: (refNames: string[]) => void;
   onRequestRenameBranch?: (name: string) => void;
   onWorktreeCreated?: () => void;
   onSelectWorktree?: (worktree: WorktreeInfo) => void;
@@ -62,6 +63,7 @@ export function BranchSidebar({
   onCreateBranchFrom,
   onCreateTagFrom,
   onDeleteBranch,
+  onDeleteBranchFolder,
   onRequestRenameBranch,
   onWorktreeCreated,
   onSelectWorktree,
@@ -103,6 +105,11 @@ export function BranchSidebar({
   const filterInputRef = useRef<HTMLInputElement | null>(null);
   const { menu: branchCtxMenu, open: openBranchCtxMenu, close: closeBranchCtxMenu } =
     useContextMenu<BranchCtxMenuState>();
+  const {
+    menu: folderCtxMenu,
+    open: openFolderCtxMenu,
+    close: closeFolderCtxMenu,
+  } = useContextMenu<{ x: number; y: number; folder: string; refNames: string[] }>();
 
   const hasLocalTrackingBranch = (remoteBranchName: string): boolean => {
     return localBranches.some((b) => b.name === remoteBranchName);
@@ -132,6 +139,17 @@ export function BranchSidebar({
     setCollapsed((s) => ({ ...s, [k]: !s[k] }));
   const toggleFolder = (k: string) =>
     setFolderCollapsed((s) => ({ ...s, [k]: !s[k] }));
+
+  const handleDeleteFolderBranches = (folder: string, items: LocalBranch[]) => {
+    if (!onDeleteBranchFolder) return;
+    const names = items.map((branch) => branch.name);
+    if (names.length === 0) return;
+    const confirmed = window.confirm(
+      `Delete all branches in '${folder}'?\n\n${names.join("\n")}`
+    );
+    if (!confirmed) return;
+    onDeleteBranchFolder(names);
+  };
 
   const grouped = useMemo(() => {
     const out: { _flat: LocalBranch[]; folders: Record<string, LocalBranch[]> } = {
@@ -278,6 +296,16 @@ export function BranchSidebar({
                       <div
                         className={"branch-folder" + (open ? "" : " collapsed")}
                         onClick={() => toggleFolder(folder)}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          openFolderCtxMenu({
+                            x: event.clientX,
+                            y: event.clientY,
+                            folder,
+                            refNames: items.map((branch) => branch.name),
+                          });
+                        }}
                       >
                         <IconCaretDown size={11} className="chevron" />
                         <IconFolder size={13} className="icon" />
@@ -472,6 +500,28 @@ export function BranchSidebar({
               Create Worktree
             </button>
           )}
+        </div>
+      )}
+      {folderCtxMenu && (
+        <div
+          className="ctx-menu"
+          style={{ left: folderCtxMenu.x, top: folderCtxMenu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+          role="menu"
+        >
+          <button
+            type="button"
+            className="ctx-menu-item ctx-menu-item-danger"
+            role="menuitem"
+            onClick={() => {
+              const groupedFolder = grouped.folders[folderCtxMenu.folder] ?? [];
+              handleDeleteFolderBranches(folderCtxMenu.folder, groupedFolder);
+              closeFolderCtxMenu();
+            }}
+            disabled={!onDeleteBranchFolder || folderCtxMenu.refNames.length === 0}
+          >
+            Delete branches
+          </button>
         </div>
       )}
       {onStartResize && (

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import { Channels } from "../shared/channels";
 
 contextBridge.exposeInMainWorld("gitdeck", {
+  getAppVersion: () => ipcRenderer.invoke(Channels.getAppVersion),
   selectRepository: () => ipcRenderer.invoke(Channels.selectRepository),
   selectDirectory: () => ipcRenderer.invoke(Channels.selectDirectory),
   cloneRepository: (url: string, parentDir: string) => ipcRenderer.invoke(Channels.cloneRepository, url, parentDir),

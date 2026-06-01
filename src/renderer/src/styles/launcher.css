@@ -10,6 +10,16 @@
   color: var(--text-1);
   font-family: var(--font-ui);
 }
+.launcher-version {
+  position: absolute;
+  left: 16px;
+  bottom: 12px;
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
 .launcher-body {
   flex: 1;
   display: flex;

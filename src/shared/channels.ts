@@ -1,4 +1,6 @@
 export const Channels = {
+  getAppVersion: "app:getVersion",
+
   selectRepository: "repo:select",
   selectDirectory: "repo:selectDirectory",
   cloneRepository: "repo:clone",

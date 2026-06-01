@@ -621,6 +621,20 @@ function RepoView({
     await data.deleteBranch(refName);
   }, [data]);
 
+  const handleDeleteBranchFolder = useCallback(async (refNames: string[]) => {
+    const failures: string[] = [];
+    for (const refName of refNames) {
+      try {
+        await data.deleteBranch(refName);
+      } catch {
+        failures.push(refName);
+      }
+    }
+    if (failures.length > 0) {
+      toast.error(`Could not delete ${failures.length} branch(es)`);
+    }
+  }, [data]);
+
   const handleRenameBranch = useCallback(async (oldName: string, newName: string) => {
     await data.renameBranch(oldName, newName);
   }, [data]);
@@ -898,6 +912,7 @@ function RepoView({
               onCreateBranchFrom={openCreateBranchFrom}
               onCreateTagFrom={openCreateTagFrom}
               onDeleteBranch={(refName) => void handleDeleteBranch(refName)}
+              onDeleteBranchFolder={(refNames) => void handleDeleteBranchFolder(refNames)}
               onRequestRenameBranch={handleRequestRenameBranch}
               onWorktreeCreated={refreshWorktrees}
               onSelectWorktree={(wt) => void handleSelectWorktree(wt)}

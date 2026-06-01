@@ -1,6 +1,6 @@
 import path from "node:path";
 import { watch } from "node:fs";
-import { dialog, ipcMain } from "electron";
+import { app, dialog, ipcMain } from "electron";
 import { Channels } from "../shared/channels";
 import { EditorService } from "./services/editorService";
 import { GitService } from "./services/gitService";
@@ -79,6 +79,7 @@ export function registerIpcHandlers() {
   });
 
   ipcMain.handle(Channels.getRecentRepositories, () => store.getAll());
+  ipcMain.handle(Channels.getAppVersion, () => app.getVersion());
 
   ipcMain.handle(Channels.watchRepository, (event, repoPath: string) => {
     const win = event.sender;
