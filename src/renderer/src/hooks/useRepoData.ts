@@ -21,6 +21,8 @@ export interface UseRepoData {
   data: RepoSnapshot;
   loading: boolean;
   loadingMoreHistory: boolean;
+  pulling: boolean;
+  pushing: boolean;
   refresh: () => Promise<void>;
   loadMoreHistory: () => Promise<void>;
   stageFile: (path: string) => Promise<void>;
@@ -60,6 +62,8 @@ export function useRepoData(repoPath: string | null): UseRepoData {
   const [data, setData] = useState<RepoSnapshot>(EMPTY_SNAPSHOT);
   const [loading, setLoading] = useState(false);
   const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
+  const [pulling, setPulling] = useState(false);
+  const [pushing, setPushing] = useState(false);
   const inflight = useRef(0);
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyRef = useRef<GitCommit[]>([]);
@@ -243,16 +247,22 @@ export function useRepoData(repoPath: string | null): UseRepoData {
 
   const pull = useCallback(
     async () => {
+      if (pulling) return;
+      setPulling(true);
       await run(() => gitClient.pull(repoPath!), "Pulled from remote", "Pull failed");
+      setPulling(false);
     },
-    [run, repoPath]
+    [run, repoPath, pulling]
   );
 
   const push = useCallback(
     async () => {
+      if (pushing) return;
+      setPushing(true);
       await run(() => gitClient.push(repoPath!), "Pushed to remote", "Push failed");
+      setPushing(false);
     },
-    [run, repoPath]
+    [run, repoPath, pushing]
   );
 
   const checkoutBranch = useCallback(
@@ -363,6 +373,8 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     data,
     loading,
     loadingMoreHistory,
+    pulling,
+    pushing,
     refresh: load,
     loadMoreHistory,
     stageFile,

@@ -858,6 +858,8 @@ function RepoView({
           onBranchQueryChange={setBranchQuery}
           onBranchSubmit={() => void handleBranchMenuSubmit()}
           onBranchSelect={(branch) => void handleBranchMenuSelect(branch)}
+          isPulling={data.pulling}
+          isPushing={data.pushing}
           onPull={() => void data.pull()}
           onPush={() => void data.push()}
           onCreateBranch={openCreateBranch}
