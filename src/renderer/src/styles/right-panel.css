@@ -349,6 +349,36 @@
   border-color: var(--del);
 }
 
+.file-context-menu {
+  position: fixed;
+  z-index: 90;
+  min-width: 170px;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border-2);
+  background: var(--bg-2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.file-context-menu-item {
+  width: 100%;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-1);
+  background: transparent;
+}
+
+.file-context-menu-item:hover {
+  background: var(--bg-3);
+}
+
+.file-context-menu-item.danger {
+  color: var(--del);
+}
+
 /* Subsections (Unstaged / Staged) */
 .subsection {
   border-top: 1px solid var(--border-1);
@@ -408,6 +438,11 @@
   background: var(--accent-soft);
   border-color: var(--accent-deep);
   color: var(--accent);
+}
+.subsection .head .stage-all.primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0f1014;
 }
 .subsection .head .stage-all.unstage-all {
   background: var(--del-soft);

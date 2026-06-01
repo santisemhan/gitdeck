@@ -31,6 +31,7 @@ declare global {
       unstageFile(repoPath: string, filePath: string): Promise<GitOperationResult>;
       stageAll(repoPath: string): Promise<GitOperationResult>;
       unstageAll(repoPath: string): Promise<GitOperationResult>;
+      discardFile(repoPath: string, filePath: string, source: "unstaged" | "staged"): Promise<GitOperationResult>;
       discardAll(repoPath: string): Promise<GitOperationResult>;
       commit(repoPath: string, message: string): Promise<GitOperationResult>;
       getHistory(repoPath: string, opts?: { limit?: number; skip?: number }): Promise<any[]>;
@@ -43,6 +44,8 @@ declare global {
       checkoutBranch(repoPath: string, branch: string): Promise<GitOperationResult>;
       checkoutRemoteBranch(repoPath: string, remoteBranch: string): Promise<GitOperationResult>;
       createBranch(repoPath: string, branch: string, startPoint?: string): Promise<GitOperationResult>;
+      createTag(repoPath: string, tag: string, startPoint?: string): Promise<GitOperationResult>;
+      pushTag(repoPath: string, tag: string): Promise<GitOperationResult>;
       deleteBranch(repoPath: string, name: string): Promise<GitOperationResult>;
       renameBranch(repoPath: string, oldName: string, newName: string): Promise<GitOperationResult>;
       mergeBranch(repoPath: string, source: string, target: string): Promise<GitOperationResult>;

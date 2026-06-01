@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
   commitGraphWidth: `${UI_NAMESPACE}.commitGraph.graphWidth`,
   commitGraphShowLabels: `${UI_NAMESPACE}.commitGraph.showLabels`,
   commitGraphShowMessage: `${UI_NAMESPACE}.commitGraph.showMessage`,
+  commitGraphShowAuthors: `${UI_NAMESPACE}.commitGraph.showAuthors`,
   commitGraphShowDate: `${UI_NAMESPACE}.commitGraph.showDate`,
   commitGraphDateWidth: `${UI_NAMESPACE}.commitGraph.dateWidth`,
   leftPanelCollapsed: `${UI_NAMESPACE}.leftPanel.collapsed`,

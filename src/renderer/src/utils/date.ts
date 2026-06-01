@@ -21,8 +21,9 @@ export function toDateGroup(dateISO: string, now: Date): DateGroup {
     const hours = Math.floor(diffMs / (60 * 60 * 1000));
     if (hours >= 1 && hours < 24) return `h-${hours}`;
   }
-  if (now.getFullYear() === date.getFullYear() && now.getMonth() === date.getMonth()) {
-    const dayDiff = Math.max(0, diffCalendarDays(now, date));
+  const dayDiff = Math.max(0, diffCalendarDays(now, date));
+  if (dayDiff >= 1 && dayDiff < 7) return `d-${dayDiff}`;
+  if (dayDiff >= 7 && dayDiff < 30) {
     const weeks = Math.floor(dayDiff / 7);
     if (weeks >= 1) return `w-${weeks}`;
   }
@@ -35,6 +36,12 @@ export function dateGroupLabel(group: DateGroup): string {
     if (!Number.isFinite(hours) || hours < 1) return "Older";
     if (hours === 1) return "1 hour ago";
     return `${hours} hours ago`;
+  }
+  if (group.startsWith("d-")) {
+    const days = Number(group.slice(2));
+    if (!Number.isFinite(days) || days < 1) return "Older";
+    if (days === 1) return "1 day ago";
+    return `${days} days ago`;
   }
   if (group.startsWith("w-")) {
     const weeks = Number(group.slice(2));

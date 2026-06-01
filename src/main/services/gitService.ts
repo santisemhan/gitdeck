@@ -285,6 +285,24 @@ export class GitService {
     return ok(result);
   }
 
+  async discardFile(repoPath: string, filePath: string, source: "unstaged" | "staged"): Promise<GitOperationResult> {
+    if (source === "staged") {
+      const restore = await runGit(repoPath, ["restore", "--staged", "--worktree", "--", filePath]);
+      if (restore.code === 0) return ok(restore);
+
+      const clean = await runGit(repoPath, ["clean", "-f", "--", filePath]);
+      if (clean.code === 0) return ok(clean);
+      return fail(restore, "Failed to discard file changes");
+    }
+
+    const restore = await runGit(repoPath, ["restore", "--worktree", "--", filePath]);
+    if (restore.code === 0) return ok(restore);
+
+    const clean = await runGit(repoPath, ["clean", "-f", "--", filePath]);
+    if (clean.code === 0) return ok(clean);
+    return fail(restore, "Failed to discard file changes");
+  }
+
   async discardAll(repoPath: string): Promise<GitOperationResult> {
     const unstage = await runGit(repoPath, ["restore", "--staged", "."]);
     if (unstage.code !== 0) return fail(unstage, "Failed to discard all changes");
@@ -534,6 +552,36 @@ export class GitService {
     return ok(result);
   }
 
+  async createTag(repoPath: string, tagName: string, startPoint?: string): Promise<GitOperationResult> {
+    const args = ["tag", tagName];
+    if (startPoint) args.push(startPoint);
+    const result = await runGit(repoPath, args);
+    if (result.code !== 0) return fail(result, "Create tag failed");
+    return ok(result);
+  }
+
+  async pushTag(repoPath: string, tagName: string): Promise<GitOperationResult> {
+    const remotes = await runGit(repoPath, ["remote"]);
+    const remoteNames = remotes.stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const remoteName = remoteNames.includes("origin") ? "origin" : remoteNames[0];
+    if (!remoteName) {
+      return {
+        ok: false,
+        code: 1,
+        stdout: "",
+        stderr: "",
+        message: "No remote configured for this repository."
+      };
+    }
+
+    const result = await runGit(repoPath, ["push", remoteName, tagName]);
+    if (result.code !== 0) return fail(result, this.mapNetworkError(result.stderr));
+    return ok(result);
+  }
+
   async deleteBranch(repoPath: string, branchName: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["branch", "-d", branchName]);
     if (result.code === 0) return ok(result);
@@ -563,6 +611,9 @@ export class GitService {
   }
 
   async pull(repoPath: string): Promise<GitOperationResult> {
+    const refresh = await runGit(repoPath, ["fetch", "--all", "--prune"]);
+    if (refresh.code !== 0) return fail(refresh, this.mapNetworkError(refresh.stderr));
+
     const result = await runGit(repoPath, ["pull"]);
     if (result.code !== 0) return fail(result, this.mapNetworkError(result.stderr));
     return ok(result);

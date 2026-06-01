@@ -312,6 +312,10 @@
   flex-shrink: 0;
 }
 
+.branch-pill .branch-pill-icon {
+  color: var(--text-1);
+}
+
 .commit-msg {
   flex: 1;
   min-width: 0;

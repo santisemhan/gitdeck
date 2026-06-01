@@ -21,12 +21,15 @@ export interface UseRepoData {
   data: RepoSnapshot;
   loading: boolean;
   loadingMoreHistory: boolean;
+  pulling: boolean;
+  pushing: boolean;
   refresh: () => Promise<void>;
   loadMoreHistory: () => Promise<void>;
   stageFile: (path: string) => Promise<void>;
   unstageFile: (path: string) => Promise<void>;
   stageAll: () => Promise<void>;
   unstageAll: () => Promise<void>;
+  discardFile: (path: string, source: "unstaged" | "staged") => Promise<void>;
   discardAll: () => Promise<void>;
   commit: (message: string) => Promise<boolean>;
   pull: () => Promise<void>;
@@ -34,6 +37,8 @@ export interface UseRepoData {
   checkoutBranch: (name: string) => Promise<void>;
   checkoutRemoteBranch: (remoteBranch: string) => Promise<void>;
   createBranch: (name: string, startPoint?: string) => Promise<void>;
+  createTag: (name: string, startPoint?: string) => Promise<void>;
+  pushTag: (name: string) => Promise<void>;
   deleteBranch: (name: string) => Promise<void>;
   renameBranch: (oldName: string, newName: string) => Promise<void>;
   mergeBranch: (source: string, target: string) => Promise<void>;
@@ -57,6 +62,8 @@ export function useRepoData(repoPath: string | null): UseRepoData {
   const [data, setData] = useState<RepoSnapshot>(EMPTY_SNAPSHOT);
   const [loading, setLoading] = useState(false);
   const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
+  const [pulling, setPulling] = useState(false);
+  const [pushing, setPushing] = useState(false);
   const inflight = useRef(0);
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyRef = useRef<GitCommit[]>([]);
@@ -219,6 +226,13 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     [run, repoPath]
   );
 
+  const discardFile = useCallback(
+    async (path: string, source: "unstaged" | "staged") => {
+      await run(() => gitClient.discardFile(repoPath!, path, source), "Discarded file changes", "Failed to discard file changes");
+    },
+    [run, repoPath]
+  );
+
   const discardAll = useCallback(
     async () => {
       await run(() => gitClient.discardAll(repoPath!), "Discarded all local changes", "Failed to discard all changes");
@@ -233,16 +247,22 @@ export function useRepoData(repoPath: string | null): UseRepoData {
 
   const pull = useCallback(
     async () => {
+      if (pulling) return;
+      setPulling(true);
       await run(() => gitClient.pull(repoPath!), "Pulled from remote", "Pull failed");
+      setPulling(false);
     },
-    [run, repoPath]
+    [run, repoPath, pulling]
   );
 
   const push = useCallback(
     async () => {
+      if (pushing) return;
+      setPushing(true);
       await run(() => gitClient.push(repoPath!), "Pushed to remote", "Push failed");
+      setPushing(false);
     },
-    [run, repoPath]
+    [run, repoPath, pushing]
   );
 
   const checkoutBranch = useCallback(
@@ -266,6 +286,20 @@ export function useRepoData(repoPath: string | null): UseRepoData {
   const createBranch = useCallback(
     async (name: string, startPoint?: string) => {
       await run(() => gitClient.createBranch(repoPath!, name, startPoint), `Created branch ${name}`, "Create branch failed");
+    },
+    [run, repoPath]
+  );
+
+  const createTag = useCallback(
+    async (name: string, startPoint?: string) => {
+      await run(() => gitClient.createTag(repoPath!, name, startPoint), `Created tag ${name}`, "Create tag failed");
+    },
+    [run, repoPath]
+  );
+
+  const pushTag = useCallback(
+    async (name: string) => {
+      await run(() => gitClient.pushTag(repoPath!, name), `Pushed tag ${name}`, "Push tag failed");
     },
     [run, repoPath]
   );
@@ -339,12 +373,15 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     data,
     loading,
     loadingMoreHistory,
+    pulling,
+    pushing,
     refresh: load,
     loadMoreHistory,
     stageFile,
     unstageFile,
     stageAll,
     unstageAll,
+    discardFile,
     discardAll,
     commit,
     pull,
@@ -352,6 +389,8 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     checkoutBranch,
     checkoutRemoteBranch,
     createBranch,
+    createTag,
+    pushTag,
     deleteBranch,
     renameBranch,
     mergeBranch,

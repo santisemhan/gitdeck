@@ -1,3 +1,6 @@
+import type { WorktreeInfo } from "../../../shared/types";
+import type { DiffHunk } from "../utils/diff";
+
 // Intentionally narrower than the shared `GitFileKind` (which also includes "copied" |
 // "untracked" | "conflicted"). The renderer's ChangedFile UI only handles these four
 // states; widening would require new icons and status pills.
@@ -82,6 +85,49 @@ export interface Repository {
 }
 
 export type DiffMode = "split" | "inline";
+export type CreateRefKind = "branch" | "tag";
 export type MainView = "graph" | "filePreview";
 export type RightPanelMode = "localChanges" | "commitDetails";
 export type SelectedFileSource = "commit" | "unstaged" | "staged";
+
+export type LauncherMode = "idle" | "clone" | "create";
+
+export interface RepoTab {
+  path: string;
+  name: string;
+}
+
+export type DropSide = "before" | "after";
+
+export type BranchCtxMenu = { x: number; y: number; refName: string; isCurrent: boolean; isRemote: boolean };
+export type StashCtxMenu = { x: number; y: number; index: number; message: string };
+export type CommitCtxMenu = { x: number; y: number; hash: string; title: string };
+export type MergeMenu = { x: number; y: number; source: string; target: string };
+
+export interface ColumnVisibility {
+  labels: boolean;
+  message: boolean;
+  authors: boolean;
+  date: boolean;
+}
+
+export type SectionKey = "LOCAL" | "REMOTE" | "WORKTREES" | "CLOUD PATCHES" | "PULL REQUESTS" | "ISSUES" | "TEAMS";
+
+export type BranchCtxMenuState = {
+  x: number;
+  y: number;
+  refName: string;
+  isCurrent: boolean;
+  isRemote: boolean;
+};
+
+export type WorktreeCtxMenuState = {
+  x: number;
+  y: number;
+  worktree: WorktreeInfo;
+};
+
+export interface DiffPair {
+  left: DiffHunk["lines"][number] | null;
+  right: DiffHunk["lines"][number] | null;
+}

@@ -1,6 +1,7 @@
 import type { ReactNode, RefObject } from "react";
 import type { LocalBranch, RemoteBranch } from "../data/types";
 import {
+  IconArrowClockwise,
   IconArchiveDown,
   IconArchiveUp,
   IconBranch,
@@ -58,6 +59,8 @@ interface RepoToolbarProps {
   onBranchQueryChange: (value: string) => void;
   onBranchSubmit: () => void;
   onBranchSelect: (branch: LocalBranch | RemoteBranch) => void;
+  isPulling?: boolean;
+  isPushing?: boolean;
   onPull: () => void;
   onPush: () => void;
   onCreateBranch: () => void;
@@ -115,8 +118,20 @@ export function RepoToolbar(props: RepoToolbarProps) {
         )}
       </div>
       <div className="actions">
-        <ToolbarAction icon={<IconCloudArrowDown size={16} />} label="Pull" badge={props.statusBehind} onClick={props.onPull} />
-        <ToolbarAction icon={<IconCloudArrowUp size={16} />} label="Push" badge={props.statusAhead} onClick={props.onPush} />
+        <ToolbarAction
+          icon={props.isPulling ? <IconArrowClockwise size={16} className="spin" /> : <IconCloudArrowDown size={16} />}
+          label={props.isPulling ? "Pulling..." : "Pull"}
+          badge={props.statusBehind}
+          disabled={props.isPulling || props.isPushing}
+          onClick={props.onPull}
+        />
+        <ToolbarAction
+          icon={props.isPushing ? <IconArrowClockwise size={16} className="spin" /> : <IconCloudArrowUp size={16} />}
+          label={props.isPushing ? "Pushing..." : "Push"}
+          badge={props.statusAhead}
+          disabled={props.isPushing || props.isPulling}
+          onClick={props.onPush}
+        />
         <ToolbarAction icon={<IconBranch size={16} />} label="Branch" onClick={props.onCreateBranch} />
         <ToolbarAction icon={<IconArchiveDown size={16} />} label="Stash" onClick={props.onStash} />
         <ToolbarAction

@@ -101,6 +101,19 @@ export const gitClient = {
   unstageAll(repoPath: string): Promise<GitOperationResult> {
     return api().unstageAll(repoPath);
   },
+  discardFile(repoPath: string, filePath: string, source: "unstaged" | "staged"): Promise<GitOperationResult> {
+    const bridge = api() as Window["gitdeck"] & { discardFile?: (repoPath: string, filePath: string, source: "unstaged" | "staged") => Promise<GitOperationResult> };
+    if (typeof bridge.discardFile !== "function") {
+      return Promise.resolve({
+        ok: false,
+        code: 1,
+        stdout: "",
+        stderr: "",
+        message: "Discard file is not available yet. Restart the app to reload preload/main changes."
+      });
+    }
+    return bridge.discardFile(repoPath, filePath, source);
+  },
   discardAll(repoPath: string): Promise<GitOperationResult> {
     const bridge = api() as Window["gitdeck"] & { discardAll?: (repoPath: string) => Promise<GitOperationResult> };
     if (typeof bridge.discardAll !== "function") {
@@ -131,6 +144,12 @@ export const gitClient = {
   },
   createBranch(repoPath: string, name: string, startPoint?: string): Promise<GitOperationResult> {
     return api().createBranch(repoPath, name, startPoint);
+  },
+  createTag(repoPath: string, name: string, startPoint?: string): Promise<GitOperationResult> {
+    return api().createTag(repoPath, name, startPoint);
+  },
+  pushTag(repoPath: string, name: string): Promise<GitOperationResult> {
+    return api().pushTag(repoPath, name);
   },
   deleteBranch(repoPath: string, name: string): Promise<GitOperationResult> {
     return api().deleteBranch(repoPath, name);

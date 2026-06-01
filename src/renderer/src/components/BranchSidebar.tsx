@@ -8,6 +8,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import type { LocalBranch, RemoteBranch } from "../data/types";
+import type { BranchCtxMenuState, SectionKey } from "../data/types";
 import type { WorktreeInfo } from "../../../shared/types";
 import { useContextMenu } from "../hooks/useContextMenu";
 import {
@@ -34,6 +35,7 @@ interface BranchSidebarProps {
   onSelectBranch: (branch: LocalBranch | RemoteBranch) => void;
   onCheckoutBranch: (branch: LocalBranch | RemoteBranch) => void;
   onCreateBranchFrom?: (refName: string) => void;
+  onCreateTagFrom?: (refName: string) => void;
   onDeleteBranch?: (refName: string) => void;
   onRequestRenameBranch?: (name: string) => void;
   onWorktreeCreated?: () => void;
@@ -49,8 +51,6 @@ interface BranchSidebarProps {
   onStartResize?: (event: ReactMouseEvent) => void;
 }
 
-type SectionKey = "LOCAL" | "REMOTE" | "WORKTREES" | "CLOUD PATCHES" | "PULL REQUESTS" | "ISSUES" | "TEAMS";
-
 export function BranchSidebar({
   localBranches,
   remoteBranches,
@@ -60,6 +60,7 @@ export function BranchSidebar({
   onSelectBranch,
   onCheckoutBranch,
   onCreateBranchFrom,
+  onCreateTagFrom,
   onDeleteBranch,
   onRequestRenameBranch,
   onWorktreeCreated,
@@ -100,13 +101,6 @@ export function BranchSidebar({
   const [folderCollapsed, setFolderCollapsed] = useState<Record<string, boolean>>({});
   const [filter, setFilter] = useState("");
   const filterInputRef = useRef<HTMLInputElement | null>(null);
-  type BranchCtxMenuState = {
-    x: number;
-    y: number;
-    refName: string;
-    isCurrent: boolean;
-    isRemote: boolean;
-  };
   const { menu: branchCtxMenu, open: openBranchCtxMenu, close: closeBranchCtxMenu } =
     useContextMenu<BranchCtxMenuState>();
 
@@ -412,6 +406,17 @@ export function BranchSidebar({
             }}
           >
             New branch from here
+          </button>
+          <button
+            type="button"
+            className="ctx-menu-item"
+            role="menuitem"
+            onClick={() => {
+              onCreateTagFrom?.(branchCtxMenu.refName);
+              closeBranchCtxMenu();
+            }}
+          >
+            Create tag here
           </button>
           {!branchCtxMenu.isRemote && (
             <>

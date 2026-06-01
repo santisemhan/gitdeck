@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { ChangedFile, DiffMode, SelectedFileSource } from "../data/types";
+import type { ChangedFile, DiffMode, DiffPair, SelectedFileSource } from "../data/types";
 import { splitPath } from "../data/mock";
 import { gitClient } from "../services/gitClient";
 import { buildSplitRows, parseUnifiedDiff, tokenize, type DiffHunk, type SplitDiffRow } from "../utils/diff";
@@ -337,16 +337,12 @@ function DiffToolbar({ source, diffMode, viewMode, onChangeDiffMode, onChangeVie
         {!hideHistoryButton && (
           <button className="nav-btn" title="File history" onClick={onShowHistory}>
             <IconHistory size={13} />
+            <span>History</span>
           </button>
         )}
       </div>
     </div>
   );
-}
-
-interface DiffPair {
-  left: DiffHunk["lines"][number] | null;
-  right: DiffHunk["lines"][number] | null;
 }
 
 function buildPairs(hunk: DiffHunk): DiffPair[] {
