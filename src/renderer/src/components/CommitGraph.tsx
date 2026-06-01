@@ -21,25 +21,19 @@ import {
   IconTag,
 } from "./icons";
 import { FileStatusIcon } from "./FileStatusIcon";
-
-type BranchCtxMenu = { x: number; y: number; refName: string; isCurrent: boolean; isRemote: boolean };
-type StashCtxMenu  = { x: number; y: number; index: number; message: string };
-type CommitCtxMenu = { x: number; y: number; hash: string; title: string };
-type MergeMenu     = { x: number; y: number; source: string; target: string };
+import type {
+  BranchCtxMenu,
+  ColumnVisibility,
+  CommitCtxMenu,
+  MergeMenu,
+  StashCtxMenu,
+} from "../data/types";
 
 /** Fixed width of the optional "Commit date" column. */
 const DATE_COL_W = 168;
 
 /** Fixed width of the always-present settings (gear) column. */
 const GEAR_COL_W = 34;
-
-/** Toggleable graph columns (the graph lane column itself is always shown). */
-interface ColumnVisibility {
-  labels: boolean;
-  message: boolean;
-  authors: boolean;
-  date: boolean;
-}
 
 interface CommitGraphProps {
   commits: Commit[];

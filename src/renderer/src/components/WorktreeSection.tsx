@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRenameWorktree } from "../hooks/useRenameWorktree";
+import type { WorktreeCtxMenuState } from "../data/types";
 import { RenameWorktreeDialog } from "./RenameWorktreeDialog";
 import type { WorktreeInfo } from "../../../shared/types";
 import {
@@ -29,12 +30,6 @@ interface WorktreeSectionProps {
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
 }
-
-type WorktreeCtxMenuState = {
-  x: number;
-  y: number;
-  worktree: WorktreeInfo;
-};
 
 export function WorktreeSection({
   worktrees = [],

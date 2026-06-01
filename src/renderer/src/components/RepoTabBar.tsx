@@ -1,10 +1,6 @@
 import { useState } from "react";
 import { IconBranch, IconHome, IconX } from "./icons";
-
-interface RepoTab {
-  path: string;
-  name: string;
-}
+import type { DropSide, RepoTab } from "../data/types";
 
 interface RepoTabBarProps {
   openRepos: RepoTab[];
@@ -17,8 +13,6 @@ interface RepoTabBarProps {
   onCloseRepo: (path: string) => void;
   onReorderRepo: (sourcePath: string, targetPath: string, placeAfter?: boolean) => void;
 }
-
-type DropSide = "before" | "after";
 
 export function RepoTabBar({
   openRepos,

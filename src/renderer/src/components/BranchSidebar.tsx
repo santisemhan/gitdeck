@@ -8,6 +8,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import type { LocalBranch, RemoteBranch } from "../data/types";
+import type { BranchCtxMenuState, SectionKey } from "../data/types";
 import type { WorktreeInfo } from "../../../shared/types";
 import { useContextMenu } from "../hooks/useContextMenu";
 import {
@@ -49,8 +50,6 @@ interface BranchSidebarProps {
   onToggleCollapsed?: () => void;
   onStartResize?: (event: ReactMouseEvent) => void;
 }
-
-type SectionKey = "LOCAL" | "REMOTE" | "WORKTREES" | "CLOUD PATCHES" | "PULL REQUESTS" | "ISSUES" | "TEAMS";
 
 export function BranchSidebar({
   localBranches,
@@ -102,13 +101,6 @@ export function BranchSidebar({
   const [folderCollapsed, setFolderCollapsed] = useState<Record<string, boolean>>({});
   const [filter, setFilter] = useState("");
   const filterInputRef = useRef<HTMLInputElement | null>(null);
-  type BranchCtxMenuState = {
-    x: number;
-    y: number;
-    refName: string;
-    isCurrent: boolean;
-    isRemote: boolean;
-  };
   const { menu: branchCtxMenu, open: openBranchCtxMenu, close: closeBranchCtxMenu } =
     useContextMenu<BranchCtxMenuState>();
 

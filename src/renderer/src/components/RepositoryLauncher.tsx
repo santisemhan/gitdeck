@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Repository } from "../../../shared/types";
 import type { ActiveRepo } from "../hooks/useActiveRepo";
+import type { LauncherMode } from "../data/types";
 import {
   IconBranch,
   IconCloudArrowDown,
@@ -25,8 +26,6 @@ interface RepositoryLauncherProps {
   onCreate: (targetPath: string) => Promise<boolean>;
   onChooseDirectory: () => Promise<string | null>;
 }
-
-type LauncherMode = "idle" | "clone" | "create";
 
 export function RepositoryLauncher({
   recents,
