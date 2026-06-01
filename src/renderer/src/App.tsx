@@ -19,6 +19,7 @@ import { useDeleteWorktree } from "./hooks/useDeleteWorktree";
 import { useOpenInFinder } from "./hooks/useOpenInFinder";
 import { usePruneWorktree } from "./hooks/usePruneWorktree";
 import { useCreateWorktree } from "./hooks/useCreateWorktree";
+import { useCreateRef } from "./hooks/useCreateRef";
 import { CreateWorktreeDialog } from "./components/CreateWorktreeDialog";
 import { gitClient } from "./services/gitClient";
 import { STORAGE_KEYS } from "./constants/storageKeys";
@@ -204,9 +205,25 @@ function RepoView({
   const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
   const [branchQuery, setBranchQuery] = useState("");
   const [showDiscardAllBanner, setShowDiscardAllBanner] = useState(false);
-  const [branchNameInput, setBranchNameInput] = useState("");
-  const [branchStartPoint, setBranchStartPoint] = useState<string | null>(null);
-  const [showCreateBranchBanner, setShowCreateBranchBanner] = useState(false);
+  const {
+    nameInput: branchNameInput,
+    setNameInput: setBranchNameInput,
+    startPoint: branchStartPoint,
+    kind: createRefKind,
+    lastCreatedTagName,
+    showBanner: showCreateBranchBanner,
+    setShowBanner: setShowCreateBranchBanner,
+    close: closeCreateRefBanner,
+    openCreateBranch,
+    openCreateBranchFrom,
+    openCreateTagFrom,
+    submit: handleSubmitCreateBranch,
+    pushCreatedTag: handlePushCreatedTag,
+  } = useCreateRef({
+    createBranch: data.createBranch,
+    createTag: data.createTag,
+    pushTag: data.pushTag,
+  });
   const [renameBranchOldName, setRenameBranchOldName] = useState<string | null>(null);
   const [renameBranchInput, setRenameBranchInput] = useState("");
   const [showRenameBranchBanner, setShowRenameBranchBanner] = useState(false);
@@ -432,6 +449,16 @@ function RepoView({
     setShowDiscardAllBanner(false);
   }, [data, staged.length, unstaged.length]);
 
+  const handleDiscardFile = useCallback(
+    async (file: ChangedFile, source: "unstaged" | "staged") => {
+      if (selectedFile?.id === file.id) {
+        handleCloseDiff();
+      }
+      await data.discardFile(file.path, source);
+    },
+    [data, handleCloseDiff, selectedFile]
+  );
+
   useEffect(() => {
     if (unstaged.length + staged.length === 0) {
       setShowDiscardAllBanner(false);
@@ -443,14 +470,14 @@ function RepoView({
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setShowCreateBranchBanner(false);
+        closeCreateRefBanner();
         setShowRenameBranchBanner(false);
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [showCreateBranchBanner, showRenameBranchBanner]);
+  }, [closeCreateRefBanner, showCreateBranchBanner, showRenameBranchBanner]);
 
   useEffect(() => {
     if (!fileHistoryPath) return;
@@ -562,31 +589,6 @@ function RepoView({
 
     toast.error("Type the full branch name or narrow your search");
   }, [branchMenuItems, branchQuery, filteredBranchMenuItems, handleBranchMenuSelect]);
-
-  const handleCreateBranch = useCallback(async () => {
-    setBranchStartPoint(null);
-    setBranchNameInput("");
-    setShowCreateBranchBanner(true);
-  }, []);
-
-  const handleCreateBranchFrom = useCallback(async (fromRef: string) => {
-    setBranchStartPoint(fromRef);
-    setBranchNameInput("");
-    setShowCreateBranchBanner(true);
-  }, []);
-
-  const handleSubmitCreateBranch = useCallback(async () => {
-    const name = branchNameInput.trim();
-    if (!name) {
-      toast.error("Branch name is required");
-      return;
-    }
-
-    await data.createBranch(name, branchStartPoint ?? undefined);
-    setShowCreateBranchBanner(false);
-    setBranchNameInput("");
-    setBranchStartPoint(null);
-  }, [branchNameInput, branchStartPoint, data]);
 
   const handleRequestRenameBranch = useCallback((name: string) => {
     setRenameBranchOldName(name);
@@ -737,31 +739,58 @@ function RepoView({
             }}
           >
             <span className="create-branch-banner-text">
-              {branchStartPoint ? `Create branch from ${branchStartPoint}` : "Create branch from current HEAD"}
+              {createRefKind === "tag"
+                ? (branchStartPoint ? `Create tag at ${branchStartPoint}` : "Create tag at current HEAD")
+                : (branchStartPoint ? `Create branch from ${branchStartPoint}` : "Create branch from current HEAD")}
             </span>
             <input
               className="create-branch-input"
               value={branchNameInput}
               onChange={(event) => setBranchNameInput(event.target.value)}
-              placeholder="feature/my-branch"
+              placeholder={createRefKind === "tag" ? "v1.2.3" : "feature/my-branch"}
               autoFocus
             />
             <div className="create-branch-actions">
               <button className="create-branch-btn primary" type="submit">
-                Create
+                {createRefKind === "tag" ? "Create tag" : "Create"}
               </button>
-              <button
-                className="create-branch-btn"
-                type="button"
-                onClick={() => {
-                  setShowCreateBranchBanner(false);
-                  setBranchNameInput("");
-                  setBranchStartPoint(null);
-                }}
-              >
-                Cancel
-              </button>
+              {createRefKind === "tag" && lastCreatedTagName && (
+                <button
+                  className="create-branch-btn primary"
+                  type="button"
+                  onClick={() => void handlePushCreatedTag()}
+                >
+                  Push tag
+                </button>
+              )}
+              {createRefKind === "tag" && lastCreatedTagName && (
+                <button
+                  className="create-branch-btn"
+                  type="button"
+                  onClick={() => {
+                    closeCreateRefBanner();
+                  }}
+                >
+                  Close
+                </button>
+              )}
+              {!(createRefKind === "tag" && lastCreatedTagName) && (
+                <button
+                  className="create-branch-btn"
+                  type="button"
+                  onClick={() => {
+                    closeCreateRefBanner();
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
             </div>
+            {createRefKind === "tag" && lastCreatedTagName && (
+              <span className="create-branch-banner-text" style={{ color: "var(--text-3)" }}>
+                Tag created locally. Push it now or later.
+              </span>
+            )}
           </form>
         )}
 
@@ -831,7 +860,7 @@ function RepoView({
           onBranchSelect={(branch) => void handleBranchMenuSelect(branch)}
           onPull={() => void data.pull()}
           onPush={() => void data.push()}
-          onCreateBranch={() => void handleCreateBranch()}
+          onCreateBranch={openCreateBranch}
           onStash={() => void handleStash()}
           onPop={() => void handleToolbarPop()}
           onToggleTerminal={() => setIsTerminalOpen((open) => !open)}
@@ -864,7 +893,8 @@ function RepoView({
               currentBranchId={currentBranchId}
               onSelectBranch={handleSelectBranch}
               onCheckoutBranch={handleCheckoutBranch}
-              onCreateBranchFrom={(refName) => void handleCreateBranchFrom(refName)}
+              onCreateBranchFrom={openCreateBranchFrom}
+              onCreateTagFrom={openCreateTagFrom}
               onDeleteBranch={(refName) => void handleDeleteBranch(refName)}
               onRequestRenameBranch={handleRequestRenameBranch}
               onWorktreeCreated={refreshWorktrees}
@@ -872,7 +902,7 @@ function RepoView({
               onSwitchWorktree={(wt) => void handleSwitchWorktree(wt)}
               onDeleteWorktree={deleteWorktree.open}
               onOpenInFinder={openInFinder}
-              onPruneWorktree={pruneWorktree}
+              onPruneWorktree={(wt) => void pruneWorktree(wt.path)}
               onOpenCreateWorktree={(branchName, isRemote) => openCreateWorktree(branchName, isRemote)}
               collapsed={leftPanelCollapsed}
               onToggleCollapsed={toggleLeftPanel}
@@ -880,25 +910,28 @@ function RepoView({
             />
 
             <div className="center">
-              <CommitGraph
-                commits={commits}
-                selectedCommitId={selectedCommit?.id}
-                onSelectCommit={handleSelectCommit}
-                onSelectWip={handleSelectWip}
-                onCheckoutRef={(refName) => void handleCheckoutRef(refName)}
-                onCreateBranchFrom={(refName) => void handleCreateBranchFrom(refName)}
+              {mainView !== "filePreview" && (
+                <CommitGraph
+                  commits={commits}
+                  selectedCommitId={selectedCommit?.id}
+                  onSelectCommit={handleSelectCommit}
+                  onSelectWip={handleSelectWip}
+                  onCheckoutRef={(refName) => void handleCheckoutRef(refName)}
+                onCreateBranchFrom={openCreateBranchFrom}
+                onCreateTagFrom={openCreateTagFrom}
                 onDeleteBranch={(refName) => void handleDeleteBranch(refName)}
-                onRequestRenameBranch={handleRequestRenameBranch}
-                onMergeBranch={(source, target) => void data.mergeBranch(source, target)}
-                onStashPop={(index) => void handleStashPop(index)}
-                onStashApply={(index) => void handleStashApply(index)}
-                onStashDrop={(index) => void handleStashDrop(index)}
-                onCherryPick={(hash) => void data.cherryPick(hash)}
-                onRevertCommit={(hash) => void data.revertCommit(hash)}
-                onLoadMore={() => void data.loadMoreHistory()}
-                loadingMore={data.loadingMoreHistory}
-                historyDone={data.data.historyDone}
-              />
+                  onRequestRenameBranch={handleRequestRenameBranch}
+                  onMergeBranch={(source, target) => void data.mergeBranch(source, target)}
+                  onStashPop={(index) => void handleStashPop(index)}
+                  onStashApply={(index) => void handleStashApply(index)}
+                  onStashDrop={(index) => void handleStashDrop(index)}
+                  onCherryPick={(hash) => void data.cherryPick(hash)}
+                  onRevertCommit={(hash) => void data.revertCommit(hash)}
+                  onLoadMore={() => void data.loadMoreHistory()}
+                  loadingMore={data.loadingMoreHistory}
+                  historyDone={data.data.historyDone}
+                />
+              )}
               {mainView === "filePreview" && selectedFile && (
                 <DiffPreviewWorkspace
                   key={`${selectedFile.id}-${selectedCommit?.id || "wip"}`}
@@ -940,6 +973,7 @@ function RepoView({
               onUnstageFile={handleUnstageFile}
               onStageAll={handleStageAll}
               onUnstageAll={handleUnstageAll}
+              onDiscardFile={handleDiscardFile}
               onRequestDiscardAll={() => setShowDiscardAllBanner(true)}
               onCommit={handleCommit}
               onViewLocalChanges={handleViewLocalChanges}

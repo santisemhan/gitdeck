@@ -99,4 +99,36 @@ describe("GitService integration", () => {
     expect(tail).toHaveLength(1);
     expect(tail[0].subject).toBe("initial");
   });
+
+  it("pull prunes stale remote tracking branches", async () => {
+    const remote = fs.mkdtempSync(path.join(os.tmpdir(), "gitdeck-remote-"));
+    const other = fs.mkdtempSync(path.join(os.tmpdir(), "gitdeck-other-"));
+
+    await runCommand("git", ["init", "--bare"], remote);
+    await runCommand("git", ["remote", "add", "origin", remote], repo);
+    await runCommand("git", ["push", "-u", "origin", "HEAD"], repo);
+
+    await runCommand("git", ["clone", remote, other], path.dirname(other));
+    await runCommand("git", ["config", "user.name", "Test User"], other);
+    await runCommand("git", ["config", "user.email", "test@example.com"], other);
+
+    await runCommand("git", ["checkout", "-b", "feat/123"], other);
+    fs.writeFileSync(path.join(other, "remote.txt"), "remote\n", "utf8");
+    await runCommand("git", ["add", "remote.txt"], other);
+    await runCommand("git", ["commit", "-m", "remote branch"], other);
+    await runCommand("git", ["push", "-u", "origin", "feat/123"], other);
+
+    await runCommand("git", ["fetch", "origin"], repo);
+
+    const before = await runCommand("git", ["show-ref", "--verify", "refs/remotes/origin/feat/123"], repo);
+    expect(before.code).toBe(0);
+
+    await runCommand("git", ["push", "origin", "--delete", "feat/123"], other);
+
+    const pull = await service.pull(repo);
+    expect(pull.ok).toBe(true);
+
+    const after = await runCommand("git", ["show-ref", "--verify", "refs/remotes/origin/feat/123"], repo);
+    expect(after.code).not.toBe(0);
+  });
 });

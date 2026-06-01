@@ -37,6 +37,7 @@ const GEAR_COL_W = 34;
 interface ColumnVisibility {
   labels: boolean;
   message: boolean;
+  authors: boolean;
   date: boolean;
 }
 
@@ -47,6 +48,7 @@ interface CommitGraphProps {
   onSelectWip: () => void;
   onCheckoutRef?: (refName: string) => void;
   onCreateBranchFrom?: (refName: string) => void;
+  onCreateTagFrom?: (refName: string) => void;
   onDeleteBranch?: (refName: string) => void;
   onRequestRenameBranch?: (name: string) => void;
   onMergeBranch?: (source: string, target: string) => void;
@@ -67,6 +69,7 @@ export function CommitGraph({
   onSelectWip,
   onCheckoutRef,
   onCreateBranchFrom,
+  onCreateTagFrom,
   onDeleteBranch,
   onRequestRenameBranch,
   onMergeBranch,
@@ -150,6 +153,7 @@ export function CommitGraph({
   const [cols, setCols] = useState<ColumnVisibility>(() => ({
     labels: readStoredBoolean(STORAGE_KEYS.commitGraphShowLabels, true),
     message: readStoredBoolean(STORAGE_KEYS.commitGraphShowMessage, true),
+    authors: readStoredBoolean(STORAGE_KEYS.commitGraphShowAuthors, false),
     date: readStoredBoolean(STORAGE_KEYS.commitGraphShowDate, true),
   }));
   const [showColumnSettings, setShowColumnSettings] = useState(false);
@@ -160,6 +164,9 @@ export function CommitGraph({
   useEffect(() => {
     writeStoredBoolean(STORAGE_KEYS.commitGraphShowMessage, cols.message);
   }, [cols.message]);
+  useEffect(() => {
+    writeStoredBoolean(STORAGE_KEYS.commitGraphShowAuthors, cols.authors);
+  }, [cols.authors]);
   useEffect(() => {
     writeStoredBoolean(STORAGE_KEYS.commitGraphShowDate, cols.date);
   }, [cols.date]);
@@ -233,6 +240,7 @@ export function CommitGraph({
     cols.labels ? `${columns.labels}px` : null,
     `${columns.graph}px`,
     cols.message ? "minmax(0, 1fr)" : null,
+    cols.authors ? "minmax(120px, 180px)" : null,
     cols.date ? `${columns.date}px` : null,
     // Always-present track for the settings gear so it never overlaps a column.
     `${GEAR_COL_W}px`,
@@ -261,6 +269,11 @@ export function CommitGraph({
           {cols.message && (
             <div className="graph-header-cell" style={{ paddingLeft: 6 }}>
               <span>Commit message</span>
+            </div>
+          )}
+          {cols.authors && (
+            <div className="graph-header-cell" style={{ paddingLeft: 10 }}>
+              <span>Authors</span>
             </div>
           )}
           {cols.date && (
@@ -292,6 +305,10 @@ export function CommitGraph({
               <label className="graph-settings-item">
                 <input type="checkbox" checked={cols.message} onChange={() => toggleColumn("message")} />
                 <span>Commit message</span>
+              </label>
+              <label className="graph-settings-item">
+                <input type="checkbox" checked={cols.authors} onChange={() => toggleColumn("authors")} />
+                <span>Authors</span>
               </label>
               <label className="graph-settings-item">
                 <input type="checkbox" checked={cols.date} onChange={() => toggleColumn("date")} />
@@ -477,6 +494,17 @@ export function CommitGraph({
               }}
             >
               New branch from here
+            </button>
+            <button
+              type="button"
+              className="ctx-menu-item"
+              role="menuitem"
+              onClick={() => {
+                onCreateTagFrom?.(branchCtxMenu.refName);
+                closeBranchCtxMenu();
+              }}
+            >
+              Create tag here
             </button>
             {!branchCtxMenu.isRemote && (
               <>
@@ -718,6 +746,12 @@ function CommitRow({ commit, selected, dateLabel, cols, onSelect, onCheckoutRef,
       </div>
       )}
 
+      {cols.authors && (
+        <div className="commit-row-cell date">
+          {!c.isWip && !c.isStash && <span className="commit-date-text">{c.author}</span>}
+        </div>
+      )}
+
       {cols.date && (
         <div className="commit-row-cell date">
           {!c.isWip && <span className="commit-date-text">{formatCommitDateTime(c.dateISO)}</span>}
@@ -820,11 +854,11 @@ function RefPill({
       }}
     >
       <span className="pname">{refData.name}</span>
-      {isTag && <IconTag size={10} className="icon-muted-shrink" />}
-      {hasLocal && <IconMonitor size={10} className="icon-muted-shrink" />}
-      {hasRemote && <IconCloud size={10} className="icon-muted-shrink" />}
+      {isTag && <IconTag size={14} className="icon-muted-shrink branch-pill-icon" />}
+      {hasLocal && <IconMonitor size={14} className="icon-muted-shrink branch-pill-icon" />}
+      {hasRemote && <IconCloud size={14} className="icon-muted-shrink branch-pill-icon" />}
       {first && refData.current && (
-        <IconCaretDown size={9} className="text-muted" />
+        <IconCaretDown size={12} className="text-muted branch-pill-icon" />
       )}
     </span>
   );

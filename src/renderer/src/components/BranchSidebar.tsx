@@ -34,6 +34,7 @@ interface BranchSidebarProps {
   onSelectBranch: (branch: LocalBranch | RemoteBranch) => void;
   onCheckoutBranch: (branch: LocalBranch | RemoteBranch) => void;
   onCreateBranchFrom?: (refName: string) => void;
+  onCreateTagFrom?: (refName: string) => void;
   onDeleteBranch?: (refName: string) => void;
   onRequestRenameBranch?: (name: string) => void;
   onWorktreeCreated?: () => void;
@@ -60,6 +61,7 @@ export function BranchSidebar({
   onSelectBranch,
   onCheckoutBranch,
   onCreateBranchFrom,
+  onCreateTagFrom,
   onDeleteBranch,
   onRequestRenameBranch,
   onWorktreeCreated,
@@ -412,6 +414,17 @@ export function BranchSidebar({
             }}
           >
             New branch from here
+          </button>
+          <button
+            type="button"
+            className="ctx-menu-item"
+            role="menuitem"
+            onClick={() => {
+              onCreateTagFrom?.(branchCtxMenu.refName);
+              closeBranchCtxMenu();
+            }}
+          >
+            Create tag here
           </button>
           {!branchCtxMenu.isRemote && (
             <>

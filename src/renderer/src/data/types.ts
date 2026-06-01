@@ -82,6 +82,7 @@ export interface Repository {
 }
 
 export type DiffMode = "split" | "inline";
+export type CreateRefKind = "branch" | "tag";
 export type MainView = "graph" | "filePreview";
 export type RightPanelMode = "localChanges" | "commitDetails";
 export type SelectedFileSource = "commit" | "unstaged" | "staged";

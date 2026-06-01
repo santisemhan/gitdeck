@@ -112,6 +112,7 @@ export function registerIpcHandlers() {
   ipcMain.handle(Channels.unstageFile, (_e, repoPath: string, filePath: string) => gitService.unstageFile(repoPath, filePath));
   ipcMain.handle(Channels.stageAll, (_e, repoPath: string) => gitService.stageAll(repoPath));
   ipcMain.handle(Channels.unstageAll, (_e, repoPath: string) => gitService.unstageAll(repoPath));
+  ipcMain.handle(Channels.discardFile, (_e, repoPath: string, filePath: string, source: "unstaged" | "staged") => gitService.discardFile(repoPath, filePath, source));
   ipcMain.handle(Channels.discardAll, (_e, repoPath: string) => gitService.discardAll(repoPath));
   ipcMain.handle(Channels.commit, (_e, repoPath: string, message: string) => gitService.commit(repoPath, message));
   ipcMain.handle(Channels.getHistory, (_e, repoPath: string, opts?: { limit?: number; skip?: number }) => gitService.getHistory(repoPath, opts));
@@ -124,6 +125,8 @@ export function registerIpcHandlers() {
   ipcMain.handle(Channels.checkoutBranch, (_e, repoPath: string, name: string) => gitService.checkoutBranch(repoPath, name));
   ipcMain.handle(Channels.checkoutRemoteBranch, (_e, repoPath: string, remoteBranch: string) => gitService.checkoutRemoteBranch(repoPath, remoteBranch));
   ipcMain.handle(Channels.createBranch, (_e, repoPath: string, name: string, startPoint?: string) => gitService.createBranch(repoPath, name, startPoint));
+  ipcMain.handle(Channels.createTag, (_e, repoPath: string, name: string, startPoint?: string) => gitService.createTag(repoPath, name, startPoint));
+  ipcMain.handle(Channels.pushTag, (_e, repoPath: string, name: string) => gitService.pushTag(repoPath, name));
   ipcMain.handle(Channels.deleteBranch, (_e, repoPath: string, name: string) => gitService.deleteBranch(repoPath, name));
   ipcMain.handle(Channels.renameBranch, (_e, repoPath: string, oldName: string, newName: string) => gitService.renameBranch(repoPath, oldName, newName));
   ipcMain.handle(Channels.mergeBranch, (_e, repoPath: string, source: string, target: string) => gitService.mergeBranch(repoPath, source, target));

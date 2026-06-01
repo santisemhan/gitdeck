@@ -65,6 +65,7 @@ interface RightPanelProps {
   onUnstageFile: (file: ChangedFile) => void;
   onStageAll: () => void;
   onUnstageAll: () => void;
+  onDiscardFile: (file: ChangedFile, source: "unstaged" | "staged") => void;
   onRequestDiscardAll: () => void;
   onCommit: (summary: string, description: string) => void;
   onViewLocalChanges: () => void;
@@ -122,6 +123,7 @@ export function RightPanel(props: RightPanelProps) {
           onUnstageFile={props.onUnstageFile}
           onStageAll={props.onStageAll}
           onUnstageAll={props.onUnstageAll}
+          onDiscardFile={props.onDiscardFile}
           onRequestDiscardAll={props.onRequestDiscardAll}
           onCommit={props.onCommit}
         />
@@ -147,14 +149,16 @@ interface ChangedFileRowProps {
   actionLabel?: string;
   actionVariant?: "stage" | "unstage";
   onAction?: (file: ChangedFile) => void;
+  onContextMenu?: (event: ReactMouseEvent<HTMLDivElement>, file: ChangedFile) => void;
 }
 
-function ChangedFileRow({ file, selected, onSelect, actionLabel, actionVariant, onAction }: ChangedFileRowProps) {
+function ChangedFileRow({ file, selected, onSelect, actionLabel, actionVariant, onAction, onContextMenu }: ChangedFileRowProps) {
   const { dir, file: fname } = splitPath(file.path);
   return (
     <div
       className={"file-row" + (selected ? " selected" : "")}
       onClick={() => onSelect(file)}
+      onContextMenu={(event) => onContextMenu?.(event, file)}
       title={file.path}
       data-file-id={file.id}
     >
@@ -189,6 +193,7 @@ interface LocalChangesPanelProps {
   onUnstageFile: (file: ChangedFile) => void;
   onStageAll: () => void;
   onUnstageAll: () => void;
+  onDiscardFile: (file: ChangedFile, source: "unstaged" | "staged") => void;
   onRequestDiscardAll: () => void;
   onCommit: (summary: string, description: string) => void;
 }
@@ -204,6 +209,7 @@ function LocalChangesPanel({
   onUnstageFile,
   onStageAll,
   onUnstageAll,
+  onDiscardFile,
   onRequestDiscardAll,
   onCommit,
 }: LocalChangesPanelProps) {
@@ -230,6 +236,7 @@ function LocalChangesPanel({
     startHeight: number;
     maxHeight: number;
   } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: ChangedFile; source: "unstaged" | "staged" } | null>(null);
 
   const onResizeMove = useCallback(
     (event: MouseEvent) => {
@@ -311,6 +318,18 @@ function LocalChangesPanel({
   useEffect(() => stopResize, [stopResize]);
   useEffect(() => stopCommitResize, [stopCommitResize]);
   useEffect(() => {
+    if (!contextMenu) return;
+    const closeMenu = () => setContextMenu(null);
+    window.addEventListener("click", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+    window.addEventListener("blur", closeMenu);
+    return () => {
+      window.removeEventListener("click", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+      window.removeEventListener("blur", closeMenu);
+    };
+  }, [contextMenu]);
+  useEffect(() => {
     writeStoredNumber(STORAGE_KEYS.rightPanelUnstagedHeight, unstagedHeight);
   }, [unstagedHeight]);
   useEffect(() => {
@@ -344,6 +363,21 @@ function LocalChangesPanel({
   );
 
   useArrowFileNavigation(navigationFiles, selectedFileId, onSelectFile);
+
+  const openContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>, file: ChangedFile, source: "unstaged" | "staged") => {
+      event.preventDefault();
+      onSelectFile(file);
+      setContextMenu({ x: event.clientX, y: event.clientY, file, source });
+    },
+    [onSelectFile]
+  );
+
+  const handleDiscardFromMenu = useCallback(() => {
+    if (!contextMenu) return;
+    onDiscardFile(contextMenu.file, contextMenu.source);
+    setContextMenu(null);
+  }, [contextMenu, onDiscardFile]);
 
   return (
     <>
@@ -399,6 +433,7 @@ function LocalChangesPanel({
                 actionLabel="Stage"
                 actionVariant="stage"
                 onAction={onStageFile}
+                onContextMenu={(event, file) => openContextMenu(event, file, "unstaged")}
               />
             ))}
           </PanelSection>
@@ -443,10 +478,28 @@ function LocalChangesPanel({
                 actionLabel="Unstage"
                 actionVariant="unstage"
                 onAction={onUnstageFile}
+                onContextMenu={(event, file) => openContextMenu(event, file, "staged")}
               />
             ))}
           </PanelSection>
         </div>
+
+      {contextMenu && (
+        <div
+          className="file-context-menu"
+          style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
+          role="menu"
+        >
+          <button
+            type="button"
+            className="file-context-menu-item danger"
+            role="menuitem"
+            onClick={handleDiscardFromMenu}
+          >
+            Discard changes
+          </button>
+        </div>
+      )}
 
       <CommitForm
         repoPath={repoPath}

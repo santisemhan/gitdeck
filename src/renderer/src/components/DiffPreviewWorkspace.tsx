@@ -337,6 +337,7 @@ function DiffToolbar({ source, diffMode, viewMode, onChangeDiffMode, onChangeVie
         {!hideHistoryButton && (
           <button className="nav-btn" title="File history" onClick={onShowHistory}>
             <IconHistory size={13} />
+            <span>History</span>
           </button>
         )}
       </div>
