@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld("gitdeck", {
   getFileContent: (repoPath: string, filePath: string, source: string, commitHash?: string) => ipcRenderer.invoke(Channels.getFileContent, repoPath, filePath, source, commitHash),
   getSplitContent: (repoPath: string, filePath: string, source: string, commitHash?: string) => ipcRenderer.invoke(Channels.getSplitContent, repoPath, filePath, source, commitHash),
   getBranches: (repoPath: string) => ipcRenderer.invoke(Channels.getBranches, repoPath),
+  getTags: (repoPath: string) => ipcRenderer.invoke(Channels.getTags, repoPath),
   checkoutBranch: (repoPath: string, branch: string) => ipcRenderer.invoke(Channels.checkoutBranch, repoPath, branch),
   checkoutRemoteBranch: (repoPath: string, remoteBranch: string) => ipcRenderer.invoke(Channels.checkoutRemoteBranch, repoPath, remoteBranch),
   createBranch: (repoPath: string, branch: string, startPoint?: string) => ipcRenderer.invoke(Channels.createBranch, repoPath, branch, startPoint),

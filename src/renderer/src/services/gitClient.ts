@@ -74,6 +74,9 @@ export const gitClient = {
   branches(repoPath: string): Promise<GitBranch[]> {
     return api().getBranches(repoPath);
   },
+  tags(repoPath: string): Promise<string[]> {
+    return api().getTags(repoPath);
+  },
   diff(repoPath: string, filePath: string, staged: boolean): Promise<GitDiff> {
     return api().getDiff(repoPath, filePath, staged);
   },

@@ -22,6 +22,7 @@ import {
   IconCloud,
   IconFolder,
   IconMonitor,
+  IconTag,
 } from "./icons";
 import { WorktreeSection } from "./WorktreeSection";
 import { CreateWorktreeDialog } from "./CreateWorktreeDialog";
@@ -29,6 +30,7 @@ import { CreateWorktreeDialog } from "./CreateWorktreeDialog";
 interface BranchSidebarProps {
   localBranches: LocalBranch[];
   remoteBranches: RemoteBranch[];
+  tags: string[];
   worktrees: WorktreeInfo[];
   repoPath: string;
   currentBranchId: string;
@@ -47,6 +49,7 @@ interface BranchSidebarProps {
   onOpenInFinder?: (worktree: WorktreeInfo) => void;
   onPruneWorktree?: (worktree: WorktreeInfo) => void;
   onOpenCreateWorktree?: (branchName: string, isRemote: boolean) => void;
+  onPushTag?: (tagName: string) => void;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
   onStartResize?: (event: ReactMouseEvent) => void;
@@ -55,6 +58,7 @@ interface BranchSidebarProps {
 export function BranchSidebar({
   localBranches,
   remoteBranches,
+  tags,
   worktrees,
   repoPath,
   currentBranchId,
@@ -73,6 +77,7 @@ export function BranchSidebar({
   onOpenInFinder,
   onPruneWorktree,
   onOpenCreateWorktree,
+  onPushTag,
   collapsed: panelCollapsed = false,
   onToggleCollapsed,
   onStartResize,
@@ -94,6 +99,7 @@ export function BranchSidebar({
   const [collapsed, setCollapsed] = useState<Record<SectionKey, boolean>>({
     LOCAL: false,
     REMOTE: false,
+    TAGS: false,
     WORKTREES: false,
     "CLOUD PATCHES": true,
     "PULL REQUESTS": true,
@@ -110,6 +116,8 @@ export function BranchSidebar({
     open: openFolderCtxMenu,
     close: closeFolderCtxMenu,
   } = useContextMenu<{ x: number; y: number; folder: string; refNames: string[] }>();
+  const { menu: tagCtxMenu, open: openTagCtxMenu, close: closeTagCtxMenu } =
+    useContextMenu<{ x: number; y: number; tagName: string }>();
 
   const hasLocalTrackingBranch = (remoteBranchName: string): boolean => {
     return localBranches.some((b) => b.name === remoteBranchName);
@@ -176,6 +184,7 @@ export function BranchSidebar({
     (s, r) => s + 1 + (r.children?.length || 0),
     0
   );
+  const totalTags = tags.length;
 
   const localOpen = !collapsed.LOCAL;
   const remoteOpen = !collapsed.REMOTE;
@@ -324,20 +333,6 @@ export function BranchSidebar({
                 {grouped._flat.filter(filterFn).map((b) => renderBranchRow(b))}
                 {totalLocal === 0 && <div className="empty-row">No branches</div>}
               </div>
-              <WorktreeSection
-                worktrees={worktrees}
-                loading={false}
-                error={null}
-                onSelectWorktree={onSelectWorktree || (() => {})}
-                onSwitchWorktree={onSwitchWorktree || (() => {})}
-                onDeleteWorktree={onDeleteWorktree}
-                onRenameWorktree={onRenameWorktree}
-                onOpenInFinder={onOpenInFinder}
-                onPruneWorktree={onPruneWorktree}
-                onAddWorktree={() => onOpenCreateWorktree?.("", false)}
-                collapsed={collapsed["WORKTREES"]}
-                onToggleCollapsed={() => toggleSection("WORKTREES")}
-              />
             </div>
           )}
         </div>
@@ -415,6 +410,47 @@ export function BranchSidebar({
             </div>
           )}
         </div>
+
+        <div className={"section" + (!collapsed["TAGS"] ? " expanded" : "")}>
+          {renderSectionHeader("TAGS", <IconTag size={13} />, "Tags", totalTags)}
+          {!collapsed["TAGS"] && (
+            <div className="section-body">
+              <div className="branch-group">
+                {tags.filter((tag) => !filter || tag.toLowerCase().includes(filter.toLowerCase())).map((tag) => (
+                  <div
+                    key={tag}
+                    className="branch-row indent-22"
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      openTagCtxMenu({ x: event.clientX, y: event.clientY, tagName: tag });
+                    }}
+                    title={tag}
+                  >
+                    <IconTag size={13} className="icon" />
+                    <span className="name">{tag}</span>
+                  </div>
+                ))}
+                {totalTags === 0 && <div className="empty-row">No tags</div>}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <WorktreeSection
+          worktrees={worktrees}
+          loading={false}
+          error={null}
+          onSelectWorktree={onSelectWorktree || (() => {})}
+          onSwitchWorktree={onSwitchWorktree || (() => {})}
+          onDeleteWorktree={onDeleteWorktree}
+          onRenameWorktree={onRenameWorktree}
+          onOpenInFinder={onOpenInFinder}
+          onPruneWorktree={onPruneWorktree}
+          onAddWorktree={() => onOpenCreateWorktree?.("", false)}
+          collapsed={collapsed["WORKTREES"]}
+          onToggleCollapsed={() => toggleSection("WORKTREES")}
+        />
       </div>
 
       {branchCtxMenu && (
@@ -521,6 +557,27 @@ export function BranchSidebar({
             disabled={!onDeleteBranchFolder || folderCtxMenu.refNames.length === 0}
           >
             Delete branches
+          </button>
+        </div>
+      )}
+      {tagCtxMenu && (
+        <div
+          className="ctx-menu"
+          style={{ left: tagCtxMenu.x, top: tagCtxMenu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+          role="menu"
+        >
+          <button
+            type="button"
+            className="ctx-menu-item"
+            role="menuitem"
+            onClick={() => {
+              onPushTag?.(tagCtxMenu.tagName);
+              closeTagCtxMenu();
+            }}
+            disabled={!onPushTag}
+          >
+            Push tag
           </button>
         </div>
       )}

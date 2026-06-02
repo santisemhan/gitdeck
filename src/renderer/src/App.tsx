@@ -115,7 +115,7 @@ function RepoView({
   onGoHome
 }: RepoViewProps) {
   const data = useRepoData(repoPath);
-  const { status, history, branches, stashes } = data.data;
+  const { status, history, branches, tags, stashes } = data.data;
   const { worktrees, refresh: refreshWorktrees } = useWorktrees(repoPath);
   const deleteWorktree = useDeleteWorktree(repoPath, refreshWorktrees);
   const { openInFinder: openInFinderPath } = useOpenInFinder();
@@ -210,7 +210,6 @@ function RepoView({
     setNameInput: setBranchNameInput,
     startPoint: branchStartPoint,
     kind: createRefKind,
-    lastCreatedTagName,
     showBanner: showCreateBranchBanner,
     setShowBanner: setShowCreateBranchBanner,
     close: closeCreateRefBanner,
@@ -218,11 +217,12 @@ function RepoView({
     openCreateBranchFrom,
     openCreateTagFrom,
     submit: handleSubmitCreateBranch,
-    pushCreatedTag: handlePushCreatedTag,
   } = useCreateRef({
     createBranch: data.createBranch,
     createTag: data.createTag,
-    pushTag: data.pushTag,
+    onTagCreated: (name) => {
+      toast.success(`Tag ${name} created locally.`);
+    },
   });
   const [renameBranchOldName, setRenameBranchOldName] = useState<string | null>(null);
   const [renameBranchInput, setRenameBranchInput] = useState("");
@@ -768,43 +768,16 @@ function RepoView({
               <button className="create-branch-btn primary" type="submit">
                 {createRefKind === "tag" ? "Create tag" : "Create"}
               </button>
-              {createRefKind === "tag" && lastCreatedTagName && (
-                <button
-                  className="create-branch-btn primary"
-                  type="button"
-                  onClick={() => void handlePushCreatedTag()}
-                >
-                  Push tag
-                </button>
-              )}
-              {createRefKind === "tag" && lastCreatedTagName && (
-                <button
-                  className="create-branch-btn"
-                  type="button"
-                  onClick={() => {
-                    closeCreateRefBanner();
-                  }}
-                >
-                  Close
-                </button>
-              )}
-              {!(createRefKind === "tag" && lastCreatedTagName) && (
-                <button
-                  className="create-branch-btn"
-                  type="button"
-                  onClick={() => {
-                    closeCreateRefBanner();
-                  }}
-                >
-                  Cancel
-                </button>
-              )}
+              <button
+                className="create-branch-btn"
+                type="button"
+                onClick={() => {
+                  closeCreateRefBanner();
+                }}
+              >
+                Cancel
+              </button>
             </div>
-            {createRefKind === "tag" && lastCreatedTagName && (
-              <span className="create-branch-banner-text" style={{ color: "var(--text-3)" }}>
-                Tag created locally. Push it now or later.
-              </span>
-            )}
           </form>
         )}
 
@@ -904,6 +877,7 @@ function RepoView({
             <BranchSidebar
               localBranches={localBranches}
               remoteBranches={remoteBranches}
+              tags={tags}
               worktrees={worktrees}
               repoPath={repoPath}
               currentBranchId={currentBranchId}
@@ -921,6 +895,7 @@ function RepoView({
               onOpenInFinder={openInFinder}
               onPruneWorktree={(wt) => void pruneWorktree(wt.path)}
               onOpenCreateWorktree={(branchName, isRemote) => openCreateWorktree(branchName, isRemote)}
+              onPushTag={(tagName) => void data.pushTag(tagName)}
               collapsed={leftPanelCollapsed}
               onToggleCollapsed={toggleLeftPanel}
               onStartResize={leftPanel.startResize}
