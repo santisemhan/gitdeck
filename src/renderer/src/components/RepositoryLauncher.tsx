@@ -51,6 +51,22 @@ export function RepositoryLauncher({
   const [name, setName] = useState("");
   const [folder, setFolder] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [appVersion, setAppVersion] = useState<string>("");
+
+  useEffect(() => {
+    let mounted = true;
+    void window.gitdeck.getAppVersion()
+      .then((version) => {
+        if (mounted) setAppVersion(version);
+      })
+      .catch(() => {
+        if (mounted) setAppVersion("");
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const resetForm = () => {
     setMode("idle");
@@ -245,6 +261,8 @@ export function RepositoryLauncher({
           </section>
         </div>
       </div>
+
+      {appVersion ? <div className="launcher-version">v{appVersion}</div> : null}
     </div>
   );
 }

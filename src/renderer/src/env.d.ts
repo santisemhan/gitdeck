@@ -20,6 +20,7 @@ import type {
 declare global {
   interface Window {
     gitdeck: {
+      getAppVersion(): Promise<string>;
       selectRepository(): Promise<any>;
       selectDirectory(): Promise<{ ok: boolean; path?: string; message?: string }>;
       cloneRepository(url: string, parentDir: string): Promise<{ ok: boolean; path?: string; name?: string; message?: string }>;
