@@ -205,12 +205,12 @@ function RepoView({
   const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
   const [branchQuery, setBranchQuery] = useState("");
   const [showDiscardAllBanner, setShowDiscardAllBanner] = useState(false);
+  const [recentCreatedTagName, setRecentCreatedTagName] = useState<string | null>(null);
   const {
     nameInput: branchNameInput,
     setNameInput: setBranchNameInput,
     startPoint: branchStartPoint,
     kind: createRefKind,
-    lastCreatedTagName,
     showBanner: showCreateBranchBanner,
     setShowBanner: setShowCreateBranchBanner,
     close: closeCreateRefBanner,
@@ -218,11 +218,13 @@ function RepoView({
     openCreateBranchFrom,
     openCreateTagFrom,
     submit: handleSubmitCreateBranch,
-    pushCreatedTag: handlePushCreatedTag,
   } = useCreateRef({
     createBranch: data.createBranch,
     createTag: data.createTag,
-    pushTag: data.pushTag,
+    onTagCreated: (name) => {
+      setRecentCreatedTagName(name);
+      toast.success(`Tag ${name} created locally. Push it from the Push menu.`);
+    },
   });
   const [renameBranchOldName, setRenameBranchOldName] = useState<string | null>(null);
   const [renameBranchInput, setRenameBranchInput] = useState("");
@@ -768,43 +770,16 @@ function RepoView({
               <button className="create-branch-btn primary" type="submit">
                 {createRefKind === "tag" ? "Create tag" : "Create"}
               </button>
-              {createRefKind === "tag" && lastCreatedTagName && (
-                <button
-                  className="create-branch-btn primary"
-                  type="button"
-                  onClick={() => void handlePushCreatedTag()}
-                >
-                  Push tag
-                </button>
-              )}
-              {createRefKind === "tag" && lastCreatedTagName && (
-                <button
-                  className="create-branch-btn"
-                  type="button"
-                  onClick={() => {
-                    closeCreateRefBanner();
-                  }}
-                >
-                  Close
-                </button>
-              )}
-              {!(createRefKind === "tag" && lastCreatedTagName) && (
-                <button
-                  className="create-branch-btn"
-                  type="button"
-                  onClick={() => {
-                    closeCreateRefBanner();
-                  }}
-                >
-                  Cancel
-                </button>
-              )}
+              <button
+                className="create-branch-btn"
+                type="button"
+                onClick={() => {
+                  closeCreateRefBanner();
+                }}
+              >
+                Cancel
+              </button>
             </div>
-            {createRefKind === "tag" && lastCreatedTagName && (
-              <span className="create-branch-banner-text" style={{ color: "var(--text-3)" }}>
-                Tag created locally. Push it now or later.
-              </span>
-            )}
           </form>
         )}
 
@@ -876,6 +851,8 @@ function RepoView({
           isPushing={data.pushing}
           onPull={() => void data.pull()}
           onPush={() => void data.push()}
+          onPushRecentTag={recentCreatedTagName ? () => void data.pushTag(recentCreatedTagName) : undefined}
+          recentTagName={recentCreatedTagName}
           onCreateBranch={openCreateBranch}
           onStash={() => void handleStash()}
           onPop={() => void handleToolbarPop()}
