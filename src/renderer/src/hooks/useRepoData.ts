@@ -13,6 +13,7 @@ export interface RepoSnapshot {
   status: GitStatus | null;
   history: GitCommit[];
   branches: GitBranch[];
+  tags: string[];
   stashes: GitStashEntry[];
   historyDone: boolean;
 }
@@ -55,6 +56,7 @@ const EMPTY_SNAPSHOT: RepoSnapshot = {
   history: [],
   branches: [],
   stashes: [],
+  tags: [],
   historyDone: false,
 };
 
@@ -75,17 +77,18 @@ export function useRepoData(repoPath: string | null): UseRepoData {
     const token = ++inflight.current;
     setLoading(true);
     try {
-      const [status, history, branches, stashes] = await Promise.all([
+      const [status, history, branches, tags, stashes] = await Promise.all([
         gitClient.status(repoPath),
         gitClient.history(repoPath, { limit: HISTORY_PAGE_SIZE, skip: 0 }),
         gitClient.branches(repoPath),
+        gitClient.tags(repoPath),
         gitClient.stashList(repoPath)
       ]);
       if (token === inflight.current) {
         const done = history.length < HISTORY_PAGE_SIZE;
         historyRef.current = history;
         historyDoneRef.current = done;
-        setData({ status, history, branches, stashes, historyDone: done });
+        setData({ status, history, branches, tags, stashes, historyDone: done });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load repository";

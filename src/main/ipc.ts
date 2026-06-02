@@ -123,6 +123,7 @@ export function registerIpcHandlers() {
   ipcMain.handle(Channels.getFileContent, (_e, repoPath: string, filePath: string, source: string, commitHash?: string) => gitService.getFileContent(repoPath, filePath, source as "unstaged" | "staged" | "commit", commitHash));
   ipcMain.handle(Channels.getSplitContent, (_e, repoPath: string, filePath: string, source: string, commitHash?: string) => gitService.getSplitContent(repoPath, filePath, source as "unstaged" | "staged" | "commit", commitHash));
   ipcMain.handle(Channels.getBranches, (_e, repoPath: string) => gitService.getBranches(repoPath));
+  ipcMain.handle(Channels.getTags, (_e, repoPath: string) => gitService.getTags(repoPath));
   ipcMain.handle(Channels.checkoutBranch, (_e, repoPath: string, name: string) => gitService.checkoutBranch(repoPath, name));
   ipcMain.handle(Channels.checkoutRemoteBranch, (_e, repoPath: string, remoteBranch: string) => gitService.checkoutRemoteBranch(repoPath, remoteBranch));
   ipcMain.handle(Channels.createBranch, (_e, repoPath: string, name: string, startPoint?: string) => gitService.createBranch(repoPath, name, startPoint));

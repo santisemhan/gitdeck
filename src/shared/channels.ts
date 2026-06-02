@@ -23,6 +23,7 @@ export const Channels = {
   getFileContent: "git:fileContent",
   getSplitContent: "git:splitContent",
   getBranches: "git:branches",
+  getTags: "git:tags",
   checkoutBranch: "git:checkoutBranch",
   checkoutRemoteBranch: "git:checkoutRemoteBranch",
   createBranch: "git:createBranch",

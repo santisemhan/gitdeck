@@ -42,6 +42,7 @@ declare global {
       getFileContent(repoPath: string, filePath: string, source: string, commitHash?: string): Promise<{ text: string; isBinary: boolean }>;
       getSplitContent(repoPath: string, filePath: string, source: string, commitHash?: string): Promise<GitSplitContent>;
       getBranches(repoPath: string): Promise<GitBranch[]>;
+      getTags(repoPath: string): Promise<string[]>;
       checkoutBranch(repoPath: string, branch: string): Promise<GitOperationResult>;
       checkoutRemoteBranch(repoPath: string, remoteBranch: string): Promise<GitOperationResult>;
       createBranch(repoPath: string, branch: string, startPoint?: string): Promise<GitOperationResult>;

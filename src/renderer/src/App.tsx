@@ -115,7 +115,7 @@ function RepoView({
   onGoHome
 }: RepoViewProps) {
   const data = useRepoData(repoPath);
-  const { status, history, branches, stashes } = data.data;
+  const { status, history, branches, tags, stashes } = data.data;
   const { worktrees, refresh: refreshWorktrees } = useWorktrees(repoPath);
   const deleteWorktree = useDeleteWorktree(repoPath, refreshWorktrees);
   const { openInFinder: openInFinderPath } = useOpenInFinder();
@@ -205,7 +205,6 @@ function RepoView({
   const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
   const [branchQuery, setBranchQuery] = useState("");
   const [showDiscardAllBanner, setShowDiscardAllBanner] = useState(false);
-  const [recentCreatedTagName, setRecentCreatedTagName] = useState<string | null>(null);
   const {
     nameInput: branchNameInput,
     setNameInput: setBranchNameInput,
@@ -222,8 +221,7 @@ function RepoView({
     createBranch: data.createBranch,
     createTag: data.createTag,
     onTagCreated: (name) => {
-      setRecentCreatedTagName(name);
-      toast.success(`Tag ${name} created locally. Push it from the Push menu.`);
+      toast.success(`Tag ${name} created locally.`);
     },
   });
   const [renameBranchOldName, setRenameBranchOldName] = useState<string | null>(null);
@@ -851,8 +849,6 @@ function RepoView({
           isPushing={data.pushing}
           onPull={() => void data.pull()}
           onPush={() => void data.push()}
-          onPushRecentTag={recentCreatedTagName ? () => void data.pushTag(recentCreatedTagName) : undefined}
-          recentTagName={recentCreatedTagName}
           onCreateBranch={openCreateBranch}
           onStash={() => void handleStash()}
           onPop={() => void handleToolbarPop()}
@@ -881,6 +877,7 @@ function RepoView({
             <BranchSidebar
               localBranches={localBranches}
               remoteBranches={remoteBranches}
+              tags={tags}
               worktrees={worktrees}
               repoPath={repoPath}
               currentBranchId={currentBranchId}
@@ -898,6 +895,7 @@ function RepoView({
               onOpenInFinder={openInFinder}
               onPruneWorktree={(wt) => void pruneWorktree(wt.path)}
               onOpenCreateWorktree={(branchName, isRemote) => openCreateWorktree(branchName, isRemote)}
+              onPushTag={(tagName) => void data.pushTag(tagName)}
               collapsed={leftPanelCollapsed}
               onToggleCollapsed={toggleLeftPanel}
               onStartResize={leftPanel.startResize}

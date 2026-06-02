@@ -519,6 +519,15 @@ export class GitService {
     return [...localBranches, ...remoteBranches];
   }
 
+  async getTags(repoPath: string): Promise<string[]> {
+    const result = await runGit(repoPath, ["tag", "--list", "--sort=-creatordate"]);
+    if (result.code !== 0) throw new Error(result.stderr || "Unable to list tags");
+    return result.stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+
   async checkoutBranch(repoPath: string, branchName: string): Promise<GitOperationResult> {
     const result = await runGit(repoPath, ["checkout", branchName]);
     if (result.code !== 0) return fail(result, "Checkout failed");

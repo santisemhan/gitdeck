@@ -111,7 +111,7 @@ export interface ColumnVisibility {
   date: boolean;
 }
 
-export type SectionKey = "LOCAL" | "REMOTE" | "WORKTREES" | "CLOUD PATCHES" | "PULL REQUESTS" | "ISSUES" | "TEAMS";
+export type SectionKey = "LOCAL" | "REMOTE" | "TAGS" | "WORKTREES" | "CLOUD PATCHES" | "PULL REQUESTS" | "ISSUES" | "TEAMS";
 
 export type BranchCtxMenuState = {
   x: number;

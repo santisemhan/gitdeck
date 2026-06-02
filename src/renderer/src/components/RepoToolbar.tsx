@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import type { LocalBranch, RemoteBranch } from "../data/types";
 import {
   IconArrowClockwise,
@@ -18,16 +18,14 @@ interface ToolbarActionProps {
   disabled?: boolean;
   split?: boolean;
   onClick?: () => void;
-  onContextMenu?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
 }
 
-function ToolbarAction({ icon, label, badge, disabled, split, onClick, onContextMenu }: ToolbarActionProps) {
+function ToolbarAction({ icon, label, badge, disabled, split, onClick }: ToolbarActionProps) {
   return (
     <button
       className={"toolbar-action" + (split ? " split-caret" : "")}
       disabled={disabled}
       onClick={onClick}
-      onContextMenu={onContextMenu}
       title={label}
     >
       <span className="ico">
@@ -65,8 +63,6 @@ interface RepoToolbarProps {
   isPushing?: boolean;
   onPull: () => void;
   onPush: () => void;
-  onPushRecentTag?: () => void;
-  recentTagName?: string | null;
   onCreateBranch: () => void;
   onStash: () => void;
   onPop: () => void;
@@ -74,27 +70,6 @@ interface RepoToolbarProps {
 }
 
 export function RepoToolbar(props: RepoToolbarProps) {
-  const [isPushMenuOpen, setIsPushMenuOpen] = useState(false);
-  const pushMenuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!isPushMenuOpen) return;
-    const close = (event: MouseEvent | KeyboardEvent) => {
-      if (event instanceof KeyboardEvent && event.key !== "Escape") return;
-      if (event instanceof MouseEvent) {
-        const target = event.target as HTMLElement | null;
-        if (target?.closest(".push-menu") || target?.closest(".push-menu-anchor")) return;
-      }
-      setIsPushMenuOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [isPushMenuOpen]);
-
   return (
     <div className="toolbar">
       <div className="field">
@@ -150,47 +125,13 @@ export function RepoToolbar(props: RepoToolbarProps) {
           disabled={props.isPulling || props.isPushing}
           onClick={props.onPull}
         />
-        <div className="push-menu-anchor" ref={pushMenuRef}>
-          <ToolbarAction
-            icon={props.isPushing ? <IconArrowClockwise size={16} className="spin" /> : <IconCloudArrowUp size={16} />}
-            label={props.isPushing ? "Pushing..." : "Push"}
-            badge={props.statusAhead}
-            split
-            disabled={props.isPushing || props.isPulling}
-            onClick={props.onPush}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              if (props.isPushing || props.isPulling) return;
-              setIsPushMenuOpen(true);
-            }}
-          />
-          {isPushMenuOpen && (
-            <div className="push-menu" role="menu" onMouseDown={(event) => event.stopPropagation()}>
-              <button
-                className="push-menu-item"
-                role="menuitem"
-                onClick={() => {
-                  props.onPush();
-                  setIsPushMenuOpen(false);
-                }}
-              >
-                Push current branch
-              </button>
-              {props.onPushRecentTag && props.recentTagName && (
-                <button
-                  className="push-menu-item"
-                  role="menuitem"
-                  onClick={() => {
-                    props.onPushRecentTag?.();
-                    setIsPushMenuOpen(false);
-                  }}
-                >
-                  Push tag {props.recentTagName}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        <ToolbarAction
+          icon={props.isPushing ? <IconArrowClockwise size={16} className="spin" /> : <IconCloudArrowUp size={16} />}
+          label={props.isPushing ? "Pushing..." : "Push"}
+          badge={props.statusAhead}
+          disabled={props.isPushing || props.isPulling}
+          onClick={props.onPush}
+        />
         <ToolbarAction icon={<IconBranch size={16} />} label="Branch" onClick={props.onCreateBranch} />
         <ToolbarAction icon={<IconArchiveDown size={16} />} label="Stash" onClick={props.onStash} />
         <ToolbarAction
